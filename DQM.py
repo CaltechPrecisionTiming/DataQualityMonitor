@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
         if 'Amp' in configurations.plots:
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
-            if(h.GetMaximum() - h.GetMinimum() > 100):
+            if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['amp'][k].SetLogy()
             h.DrawCopy('E1')
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
@@ -140,7 +140,7 @@ if __name__ == '__main__':
                             binning = [100, np.min(integral), np.max(integral)],
                             axis_title = ['Integral [pC]', 'Events'])
 
-            if(h.GetMaximum() - h.GetMinimum() > 100):
+            if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['int'][k].SetLogy()
             h.DrawCopy('E1')
             canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
@@ -161,7 +161,7 @@ if __name__ == '__main__':
 
             h.SetStats(0)
             canvas['wave'][k] = rt.TCanvas('c_wave_'+str(k), 'c_wave_'+str(k), 800, 600)
-            if(h.GetMaximum() - h.GetMinimum() > 100):
+            if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['wave'][k].SetLogz()
             h.DrawCopy('colz')
             canvas['wave'][k].SaveAs(out_dir + '/Waveform_ch'+str(k)+'.png')
@@ -184,7 +184,7 @@ if __name__ == '__main__':
             y = y[sel]
 
             h = create_TH2D(np.column_stack((x,y)), name, title,
-                            binning = [250, np.min(x), np.max(x)+0.3*np.std(x), 250, np.min(y), np.max(y)+0.3*np.std(x)],
+                            binning = [100, np.min(x), np.max(x)+0.3*np.std(x), 100, np.min(y), np.max(y)+0.3*np.std(x)],
                             axis_title = ['x [mm]', 'y [mm]']
                            )
 
@@ -233,9 +233,11 @@ if __name__ == '__main__':
                                 binning = [ None, median-2*width, median+2*width],
                                 axis_title = [x_axis_title, 'Events'])
 
-            res = h.Fit('gaus', 'LQSR', '', np.percentile(delta_t, 30), np.percentile(delta_t, 70))
+            res = h.Fit('gaus', 'LQSR', '', np.percentile(delta_t, 20), np.percentile(delta_t, 80))
 
             if 'TimeResRaw' in configurations.plots:
                 canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
                 h.DrawCopy('E1')
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
+
+        '''=========================== Time resolution vs impact point ==========================='''

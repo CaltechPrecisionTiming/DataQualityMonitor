@@ -17,7 +17,7 @@ def create_TH1D(x, name='h', title=None, binning=[None, None, None], weights=Non
                 binning[2] = max(x)
         if binning[0] is None:
             bin_w = 4*(np.percentile(x,75) - np.percentile(x,25))/(len(x))**(1./3.)
-            binning[0] = 8 + int((binning[2] - binning[1])/bin_w)
+            binning[0] = int((binning[2] - binning[1])/bin_w)
 
         h = rt.TH1D(name, title, binning[0], binning[1], binning[2])
     else:
