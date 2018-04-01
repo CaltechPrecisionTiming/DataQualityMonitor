@@ -1,0 +1,5 @@
+*.root
+*.dat
+*.pyc
+*.o
+*.dSYM
