@@ -123,6 +123,7 @@ if __name__ == '__main__':
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['amp'][k].SetLogy()
             h.DrawCopy('E1')
+            canvas['amp'][k].Update()
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
 
         # Compute the selection and save it to the
@@ -143,6 +144,7 @@ if __name__ == '__main__':
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['int'][k].SetLogy()
             h.DrawCopy('E1')
+            canvas['int'][k].Update()
             canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
 
 
@@ -164,6 +166,7 @@ if __name__ == '__main__':
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['wave'][k].SetLogz()
             h.DrawCopy('colz')
+            canvas['wave'][k].Update()
             canvas['wave'][k].SaveAs(out_dir + '/Waveform_ch'+str(k)+'.png')
 
 
@@ -192,6 +195,7 @@ if __name__ == '__main__':
             h.DrawCopy('colz')
 
             if 'PosRaw' in configurations.plots:
+                canvas['pos'][k].Update()
                 canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
 
             name = 'h_weight_pos_'+str(k)
@@ -206,6 +210,7 @@ if __name__ == '__main__':
             if 'PosWeight' in configurations.plots:
                 canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
                 h.DrawCopy('colz')
+                canvas['w_pos'][k].Update()
                 canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
 
 
@@ -238,6 +243,7 @@ if __name__ == '__main__':
             if 'TimeResRaw' in configurations.plots:
                 canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
                 h.DrawCopy('E1')
+                canvas['t_res_raw'][k].Update()
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
 
-        '''=========================== Time resolution vs impact point ==========================='''
+        '''=========================== Time resolution vs impact pointgit ==========================='''
