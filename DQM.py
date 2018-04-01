@@ -91,7 +91,12 @@ if __name__ == '__main__':
         if not aux in branches:
             branches.append(aux)
 
-    data = root2array(input_file, branches=branches)
+    root_file = rt.TFile.Open( input_file,"READ");
+    if not root_file:
+        print "[ERROR]: Input file not found"
+        raise
+    tree_name = root_file.GetListOfKeys().At(0).GetName()
+    data = root2array(input_file, tree_name, branches=branches)
 
     for k in configurations.ch_ordered:
         conf = configurations.channel[k]
