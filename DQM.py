@@ -11,14 +11,12 @@ from lib.cebefo_style import cebefo_style
 def parsing():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="input root file", nargs='+')
-    # parser.add_argument("-a", "--add_to_tree", default=False, action='store_true', help="Add output to input tree")
-    parser.add_argument("-c", "--config", type=str, default='config/VME_test.txt', help="Config file")
-    parser.add_argument("-s", "--save_loc", type=str, default='./', help="Saving location")
+    parser.add_argument("-C", "--config", type=str, default='config/VME_test.txt', help="Config file")
+    parser.add_argument("-S", "--save_loc", type=str, default='./', help="Saving location")
 
-    # parser.add_argument("-T", "--train", type=str, help="variable to train", nargs='+')
-    # parser.add_argument("-P", "--predict", type=str, help="variable to predict", nargs='+')
-    # parser.add_argument("--addCPX", default=False, action='store_true', help="Add CPX variables")
+    parser.add_argument("-B", "--batch", default=False, action='store_true', help="Root batch mode")
 
+    parser.add_argument("-N", "--runs_interval", default=None, type=int, help="Runs to run", nargs='+')
 
     args = parser.parse_args()
     return args
@@ -60,14 +58,36 @@ if __name__ == '__main__':
 
     args = parsing()
 
+    if args.batch:
+        rt.gROOT.SetBatch()
+
     configurations = Config(args.config)
 
-    aux = re.search(r'Run[0-9]+', args.input_file[0])
-    flag = aux.group(0)[3:]
-    if len(args.input_file) > 1:
-        aux = re.search(r'Run[0-9]+', args.input_file[-1])
-        flag += '_'+aux.group(0)[3:]
+    if args.runs_interval==None:
+        aux = re.search(r'Run[0-9]+', args.input_file[0])
+        flag = aux.group(0)[3:]
+        if len(args.input_file) > 1:
+            aux = re.search(r'Run[0-9]+', args.input_file[-1])
+            flag += '_'+aux.group(0)[3:]
+    elif len(args.runs_interval)==2:
+        deduced_file_list = []
+        for i in range(args.runs_interval[0], args.runs_interval[1]+1):
+            aux = args.input_file[0].replace('XXX', str(i))
+            deduced_file_list.append(aux)
 
+        args.input_file = deduced_file_list
+        flag = str(args.runs_interval[0]) + '_' + str(args.runs_interval[1])
+    elif len(args.runs_interval) > 2:
+        deduced_file_list = []
+        for i in args.runs_interval:
+            aux = args.input_file[0].replace('XXX', str(i))
+            deduced_file_list.append(aux)
+        args.input_file = deduced_file_list
+        flag = str(args.runs_interval[0]) + '-' + str(args.runs_interval[-1])
+    else:
+        raise
+
+        print 'Directory flag: ', flag
     save_loc = args.save_loc
     if os.path.isdir(save_loc):
         if save_loc[-1] != '/':
@@ -269,3 +289,9 @@ if __name__ == '__main__':
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
 
         # '''=========================== Time resolution vs impact pointgit ==========================='''
+
+    # Compile the php index.php file
+    current_dir = os.getcwd()
+    os.chdir(out_dir)
+    os.system('php ./index.php > web.html')
+    os.chdir(current_dir)
