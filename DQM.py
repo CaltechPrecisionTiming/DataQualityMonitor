@@ -131,6 +131,11 @@ if __name__ == '__main__':
     canvas['w_pos'] = {}
     canvas['t_res_raw'] = {}
 
+    rt.gStyle.SetStatY(0.98);
+    rt.gStyle.SetStatX(0.999);
+    rt.gStyle.SetStatW(0.15);
+    rt.gStyle.SetStatH(0.1);
+
     for k in configurations.ch_ordered:
         conf = configurations.channel[k]
 
