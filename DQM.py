@@ -117,8 +117,8 @@ if __name__ == '__main__':
         conf['amp_range'] = [max(20,peak*0.6), min(450, peak*1.6)]
         res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
         #     h.SetOptStat
-        lowLimit = rt.TLine(conf['amp_range'][0], 0, conf['amp_range'][0],99) 
-        highLimit = rt.TLine(conf['amp_range'][1], 0, conf['amp_range'][1],99) 
+        lowLimit = rt.TLine(conf['amp_range'][0], 0, conf['amp_range'][0],h.GetBinContent(i_max)) 
+        highLimit = rt.TLine(conf['amp_range'][1], 0, conf['amp_range'][1],h.GetBinContent(i_max)) 
         lowLimit.SetLineWidth(3)
         highLimit.SetLineWidth(3)
         lowLimit.SetLineStyle(9)
