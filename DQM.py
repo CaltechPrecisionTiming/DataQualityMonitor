@@ -117,12 +117,22 @@ if __name__ == '__main__':
         conf['amp_range'] = [max(20,peak*0.6), min(450, peak*1.6)]
         res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
         #     h.SetOptStat
+        lowLimit = rt.TLine(conf['amp_range'][0], 0, conf['amp_range'][0],99) 
+        highLimit = rt.TLine(conf['amp_range'][1], 0, conf['amp_range'][1],99) 
+        lowLimit.SetLineWidth(3)
+        highLimit.SetLineWidth(3)
+        lowLimit.SetLineStyle(9)
+        highLimit.SetLineStyle(9)
+
 
         if 'Amp' in configurations.plots:
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['amp'][k].SetLogy()
             h.DrawCopy('E1')
+            lowLimit.Draw("same")
+            highLimit.Draw("same")
+            canvas['amp'][k].donotdelete = [lowLimit, highLimit]
             canvas['amp'][k].Update()
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
 
