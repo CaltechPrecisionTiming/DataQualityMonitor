@@ -121,8 +121,6 @@ if __name__ == '__main__':
             continue
         chain.Add(f)
 
-    df = rt.ROOT.Experimental.TDataFrame(chain)
-
     canvas = {}
     canvas['amp'] = {}
     canvas['int'] = {}
