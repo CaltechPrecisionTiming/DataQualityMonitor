@@ -120,8 +120,8 @@ if __name__ == '__main__':
         title = 'Amplitude channel '+str(k)
 
         h = rt.TH1D(name, title, 100, 3, 550)
-        h.SetXTitle('Peak amplitude [mV]')
-        h.SetYTitle('Events / '+str(h.GetBinWidth(1))+' mV')
+        h.SetXTitle('amplitude [mV]')
+        h.SetYTitle('events / '+str(h.GetBinWidth(1))+' mV')
         chain.Project(name, 'amp['+str(k)+']')
 
         h.GetXaxis().SetRange(int(40/5.5)+1,int(450/5.5)+1)
