@@ -24,7 +24,7 @@ def parsing():
 
 class Config:
     def __init__(self, infile):
-        self.raw_conf = open('config/VME_test.txt', 'r').readlines()
+        self.raw_conf = open(infile, 'r').readlines()
         self.channel = {}
         self.ch_ordered = []
         self.plots = []
@@ -155,6 +155,8 @@ if __name__ == '__main__':
         conf['amp_sel'] = 'amp['+str(k)+'] < ' + str(conf['amp_range'][1])
         conf['amp_sel'] += ' && '
         conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0])
+        # conf['amp_sel'] += ' && Entry$<4500'
+
 
         res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
 
@@ -229,6 +231,7 @@ if __name__ == '__main__':
                 h.SetYTitle('y [mm]')
 
                 chain.Project(name, var, conf['amp_sel'])
+                # chain.Project(name, var, 'amp[{}]>200'.format(k))
 
 
                 canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
@@ -291,7 +294,10 @@ if __name__ == '__main__':
                 canvas['t_res_raw'][k].Update()
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
 
-        # '''=========================== Time resolution vs impact pointgit ==========================='''
+            # '''=========================== Time resolution vs impact point ==========================='''
+            # if conf['idx_dut'] >= 0 and 'ImpactCorrection' in configurations.plots:
+            #     i_s = conf['idx_dut']
+
 
     # Compile the php index.php file
     current_dir = os.getcwd()
