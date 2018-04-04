@@ -276,6 +276,9 @@ if __name__ == '__main__':
 
             x_axis_title = var + '  [ns]'
 
+            if ( len(delta_t) ==0):
+                print "Empty delta"
+                continue
             median = np.percentile(delta_t, 50)
             width = np.abs(np.percentile(delta_t, 20) - np.percentile(delta_t, 80))
 
