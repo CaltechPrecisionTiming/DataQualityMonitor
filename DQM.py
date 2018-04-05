@@ -124,6 +124,7 @@ if __name__ == '__main__':
     canvas = {}
     canvas['amp'] = {}
     canvas['int'] = {}
+    canvas['risetime'] = {}
     canvas['wave'] = {}
     canvas['pos'] = {}
     canvas['w_pos'] = {}
@@ -136,7 +137,6 @@ if __name__ == '__main__':
 
     for k in configurations.ch_ordered:
         conf = configurations.channel[k]
-
 
         '''=========================== Amplitude ==========================='''
         name = 'h_amp_'+str(k)
@@ -152,11 +152,9 @@ if __name__ == '__main__':
         h.GetXaxis().SetRange(1,100)
         peak = h.GetBinCenter(i_max)
         conf['amp_range'] = [max(40,peak*0.6), min(450, peak*1.7)]
-        conf['amp_sel'] = 'amp['+str(k)+'] < ' + str(conf['amp_range'][1])
+        conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
         conf['amp_sel'] += ' && '
-        conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0])
-        # conf['amp_sel'] += ' && Entry$<4500'
-
+        conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
 
         res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
 
@@ -193,6 +191,33 @@ if __name__ == '__main__':
             h.DrawCopy('E1')
             canvas['int'][k].Update()
             canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
+
+        '''=========================== Risetime ======================================='''
+        if 'Risetime' in configurations.plots:
+            canvas['risetime'][k] = rt.TCanvas('c_risetime_'+str(k), 'c_int_'+str(k), 800, 600)
+
+            t_low  = .0
+            t_high = 10;#20 ns range
+            nbins  = 100
+            name   = 'h_risetime_' + str(k)
+            title  = 'Risetime ' + str(k)
+            h      = rt.TH1D(name, title, nbins, t_low, t_high)
+            h.SetXTitle('risetime [ns]')
+            h.SetYTitle('events /' + str(h.GetBinWidth(1)) + 'ns')
+            if conf['idx_ref'] == -1:#do not apply cut again on reference channels
+                cut = conf['amp_sel']
+            else:
+                cut = conf['amp_sel'] + '&&' + configurations.channel[conf['idx_ref']]['amp_sel']
+
+            chain.Project(name, 'risetime['+str(k)+']', cut)
+
+            if (h.GetMaximum() - h.GetMinimum() > 50000):
+                canvas.SetLogy()
+
+            ##ploting histogram
+            h.DrawCopy('E1')
+            canvas['risetime'][k].Update()
+            canvas['risetime'][k].SaveAs(out_dir+'/risetime_ch'+str(k)+'.png')
 
 
         '''=========================== Waveform color chart ==========================='''
@@ -280,14 +305,14 @@ if __name__ == '__main__':
                 print 'Empty delta'
                 continue
             median = np.percentile(delta_t, 50)
-            width = np.abs(np.percentile(delta_t, 20) - np.percentile(delta_t, 80))
+            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
             h = create_TH1D(delta_t, name, title,
                                 binning = [ None, median-3*width, median+3*width],
                                 axis_title = [x_axis_title, 'Events'])
 
-            low_edge = min(h.GetBinCenter(h.GetMaximumBin()-3), np.percentile(delta_t, 10))
-            upper_edge = min(h.GetBinCenter(h.GetMaximumBin()+4), np.percentile(delta_t, 90))
+            low_edge = min(h.GetBinCenter(h.GetMaximumBin()-5), np.percentile(delta_t, 10))
+            upper_edge = min(h.GetBinCenter(h.GetMaximumBin()+8), np.percentile(delta_t, 95))
 
             res = h.Fit('gaus', 'LQSR', '', low_edge, upper_edge)
 
