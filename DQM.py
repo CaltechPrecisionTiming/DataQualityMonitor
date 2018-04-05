@@ -197,7 +197,7 @@ if __name__ == '__main__':
             canvas['risetime'][k] = rt.TCanvas('c_risetime_'+str(k), 'c_int_'+str(k), 800, 600)
 
             t_low  = .0
-            t_high = 20;#20 ns range
+            t_high = 10;#20 ns range
             nbins  = 100
             name   = 'h_risetime_' + str(k)
             title  = 'Risetime ' + str(k)
@@ -209,7 +209,6 @@ if __name__ == '__main__':
             else:
                 cut = conf['amp_sel'] + '&&' + configurations.channel[conf['idx_ref']]['amp_sel']
 
-            print cut
             chain.Project(name, 'risetime['+str(k)+']', cut)
 
             if (h.GetMaximum() - h.GetMinimum() > 50000):
@@ -302,14 +301,14 @@ if __name__ == '__main__':
             x_axis_title = var + '  [ns]'
 
             median = np.percentile(delta_t, 50)
-            width = np.abs(np.percentile(delta_t, 20) - np.percentile(delta_t, 80))
+            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
             h = create_TH1D(delta_t, name, title,
                                 binning = [ None, median-3*width, median+3*width],
                                 axis_title = [x_axis_title, 'Events'])
 
-            low_edge = min(h.GetBinCenter(h.GetMaximumBin()-3), np.percentile(delta_t, 10))
-            upper_edge = min(h.GetBinCenter(h.GetMaximumBin()+4), np.percentile(delta_t, 90))
+            low_edge = min(h.GetBinCenter(h.GetMaximumBin()-5), np.percentile(delta_t, 10))
+            upper_edge = min(h.GetBinCenter(h.GetMaximumBin()+8), np.percentile(delta_t, 95))
 
             res = h.Fit('gaus', 'LQSR', '', low_edge, upper_edge)
 
