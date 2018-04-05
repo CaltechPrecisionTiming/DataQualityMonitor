@@ -138,7 +138,6 @@ if __name__ == '__main__':
     for k in configurations.ch_ordered:
         conf = configurations.channel[k]
 
-
         '''=========================== Amplitude ==========================='''
         name = 'h_amp_'+str(k)
         title = 'Amplitude channel '+str(k)
@@ -153,9 +152,9 @@ if __name__ == '__main__':
         h.GetXaxis().SetRange(1,100)
         peak = h.GetBinCenter(i_max)
         conf['amp_range'] = [max(40,peak*0.6), min(450, peak*1.7)]
-        conf['amp_sel'] = 'amp['+str(k)+'] < ' + str(conf['amp_range'][1])
+        conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
         conf['amp_sel'] += ' && '
-        conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0])
+        conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
 
         res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
 
@@ -205,7 +204,13 @@ if __name__ == '__main__':
             h      = rt.TH1D(name, title, nbins, t_low, t_high)
             h.SetXTitle('risetime [ns]')
             h.SetYTitle('events /' + str(h.GetBinWidth(1)) + 'ns')
-            chain.Project(name, 'risetime['+str(k)+']')
+            if conf['idx_ref'] == -1:#do not apply cut again on reference channels
+                cut = conf['amp_sel']
+            else:
+                cut = conf['amp_sel'] + '&&' + configurations.channel[conf['idx_ref']]['amp_sel']
+
+            print cut
+            chain.Project(name, 'risetime['+str(k)+']', cut)
 
             if (h.GetMaximum() - h.GetMinimum() > 50000):
                 canvas.SetLogy()
