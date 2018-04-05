@@ -277,7 +277,7 @@ if __name__ == '__main__':
             x_axis_title = var + '  [ns]'
 
             if ( len(delta_t) ==0):
-                print "Empty delta"
+                print 'Empty delta'
                 continue
             median = np.percentile(delta_t, 50)
             width = np.abs(np.percentile(delta_t, 20) - np.percentile(delta_t, 80))
@@ -300,6 +300,18 @@ if __name__ == '__main__':
             # '''=========================== Time resolution vs impact point ==========================='''
             # if conf['idx_dut'] >= 0 and 'ImpactCorrection' in configurations.plots:
             #     i_s = conf['idx_dut']
+            #
+            #     selection += selection+' && ntracks>0'
+            #     bounds = {}
+            #     h = {}
+            #
+            #     for c in ['x','y']:
+            #         cc = (tree2array(chain, c+'_dut['+str(i_s)+']', selection).view(np.recarray).T)[0]
+            #         bounds[c] = [np.percentile(cc, 5), np.percentile(cc, 95)]
+            #         var = ''
+            #         h[c] = TH2D('h_'+c+'_space_dip', 'h_'+c+'_space_dip', 50, bounds[c][0], bounds[c][1], 50, low_edge, upper_edge)
+
+
 
 
     # Compile the php index.php file

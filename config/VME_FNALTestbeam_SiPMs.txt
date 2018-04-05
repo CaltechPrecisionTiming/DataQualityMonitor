@@ -1,5 +1,5 @@
-#-->Print: Amp Int WaveColor PosRaw PosWeight TimeResRaw
--->Print: Amp PosRaw PosWeight
+-->Print: Amp Int WaveColor PosRaw PosWeight TimeResRaw
+#-->Print: Amp PosRaw PosWeight
 -->XYcenter-width: 20 20 30
 ch_num idx_time idx_dut idx_ref var_ref
 #0 0 0 -1 gaus_mean
@@ -7,5 +7,5 @@ ch_num idx_time idx_dut idx_ref var_ref
 #5 0 2 0 LP2_10
 9 1 0 -1 gaus_mean
 14 1 0 9 LP2_10
-15 1 0 9 LP2_10
-16 1 0 9 LP2_10
+#15 1 0 9 LP2_10
+#16 1 0 9 LP2_10
