@@ -2,24 +2,21 @@ import numpy as np
 import os, re, shutil
 import argparse
 import ROOT as rt
-from root_numpy import root2array
+from root_numpy import root2array, tree2array
 from lib.histo_utilities import create_TH1D, create_TH2D
 from lib.cebefo_style import cebefo_style
 
 
-# input_file = '../data/RawDataSaver0CMSVMETiming_Run81_0_Raw.root'
 
 def parsing():
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", type=str, help="input root file")
-    # parser.add_argument("-a", "--add_to_tree", default=False, action='store_true', help="Add output to input tree")
-    parser.add_argument("-c", "--config", type=str, default='config/VME_test.txt', help="Config file")
-    parser.add_argument("-s", "--save_loc", type=str, default='./', help="Saving location")
+    parser.add_argument("input_file", type=str, help="input root file", nargs='+')
+    parser.add_argument("-C", "--config", type=str, default='config/VME_test.txt', help="Config file")
+    parser.add_argument("-S", "--save_loc", type=str, default='./', help="Saving location")
 
-    # parser.add_argument("-T", "--train", type=str, help="variable to train", nargs='+')
-    # parser.add_argument("-P", "--predict", type=str, help="variable to predict", nargs='+')
-    # parser.add_argument("--addCPX", default=False, action='store_true', help="Add CPX variables")
+    parser.add_argument("-B", "--batch", default=False, action='store_true', help="Root batch mode")
 
+    parser.add_argument("-N", "--runs_interval", default=None, type=int, help="Runs to run", nargs='+')
 
     args = parser.parse_args()
     return args
@@ -32,6 +29,7 @@ class Config:
         self.ch_ordered = []
         self.plots = []
         self.labels = []
+        self.xy_center = [0,0, 15]
 
         for i, l in enumerate(self.raw_conf):
             if l[0] == '#':
@@ -39,6 +37,8 @@ class Config:
             l = l[0:-1].split(' ')
             if '-->Pri' in l[0]:
                 self.plots = l[1:]
+            elif '-->XYcenter' in l[0]:
+                self.xy_center = [float(l[1]), float(l[2]), float(l[3])]
             elif len(self.labels) == 0:
                 self.labels = l[1:]
             else:
@@ -58,86 +58,121 @@ if __name__ == '__main__':
 
     args = parsing()
 
+    if args.batch:
+        rt.gROOT.SetBatch()
+
     configurations = Config(args.config)
 
-    input_file = args.input_file
-    aux = re.search(r'Run[0-9]+', input_file)
-    run_number = int(aux.group(0)[3:])
+    if args.runs_interval==None:
+        aux = re.search(r'Run[0-9]+', args.input_file[0])
+        flag = aux.group(0)[3:]
+        if len(args.input_file) > 1:
+            aux = re.search(r'Run[0-9]+', args.input_file[-1])
+            flag += '_'+aux.group(0)[3:]
+    elif len(args.runs_interval)==2:
+        deduced_file_list = []
+        for i in range(args.runs_interval[0], args.runs_interval[1]+1):
+            aux = args.input_file[0].replace('XXX', str(i))
+            deduced_file_list.append(aux)
 
+        args.input_file = deduced_file_list
+        flag = str(args.runs_interval[0]) + '_' + str(args.runs_interval[1])
+    elif len(args.runs_interval) > 2:
+        deduced_file_list = []
+        for i in args.runs_interval:
+            aux = args.input_file[0].replace('XXX', str(i))
+            deduced_file_list.append(aux)
+        args.input_file = deduced_file_list
+        flag = str(args.runs_interval[0]) + '-' + str(args.runs_interval[-1])
+    else:
+        raise
+
+        print 'Directory flag: ', flag
     save_loc = args.save_loc
     if os.path.isdir(save_loc):
         if save_loc[-1] != '/':
             save_loc += '/'
-        out_dir = save_loc + 'Run' + str(run_number) + 'plots'
+        out_dir = save_loc + 'Run' + str(flag) + '_plots'
         if os.path.exists(out_dir):
             shutil.rmtree(out_dir)
         os.mkdir(out_dir)
+        shutil.copyfile('./lib/index.php', out_dir+'/index.php')
     else:
         print 'Save location not existing:', save_loc
         raise
 
 
+
+    chain = rt.TChain('pulse')
+    chain.tree_name = tree_name = 'pulse'
+    for i, f in enumerate(args.input_file):
+        root_file = rt.TFile.Open( f,"READ");
+        if not root_file:
+            print "[ERROR]: Input file not found:", f
+            continue
+        tree_name = root_file.GetListOfKeys().At(0).GetName()
+        if i == 0:
+            if tree_name != 'pulse':
+                print 'Change'
+                chain = rt.TChain(tree_name)
+                chain.tree_name = tree_name
+        elif tree_name != chain.tree_name:
+            print 'Skipping', f, ' for tree name incompatibility'
+            continue
+        chain.Add(f)
+
     canvas = {}
     canvas['amp'] = {}
     canvas['int'] = {}
+    canvas['risetime'] = {}
     canvas['wave'] = {}
     canvas['pos'] = {}
     canvas['w_pos'] = {}
     canvas['t_res_raw'] = {}
 
-    branches = ['amp', 'channel', 'integral', 'time', 'x_dut', 'y_dut']
-    for conf in configurations.channel.values():
-        aux = conf['var_ref']
-        if not aux in branches:
-            branches.append(aux)
-
-    root_file = rt.TFile.Open( input_file,"READ");
-    if not root_file:
-        print "[ERROR]: Input file not found"
-        raise
-    tree_name = root_file.GetListOfKeys().At(0).GetName()
-    data = root2array(input_file, tree_name, branches=branches)
+    rt.gStyle.SetStatY(0.98);
+    rt.gStyle.SetStatX(0.999);
+    rt.gStyle.SetStatW(0.15);
+    rt.gStyle.SetStatH(0.1);
 
     for k in configurations.ch_ordered:
         conf = configurations.channel[k]
 
-
         '''=========================== Amplitude ==========================='''
         name = 'h_amp_'+str(k)
         title = 'Amplitude channel '+str(k)
-        amp = (data['amp'].T)[k]
-        h = create_TH1D(amp, name, title,
-                        binning = [100, 0, 550],
-                        axis_title = ['Peak amplitude [mV]', 'Events / 5.5 mV'])
+
+        h = rt.TH1D(name, title, 100, 3, 550)
+        h.SetXTitle('amplitude [mV]')
+        h.SetYTitle('events / '+str(h.GetBinWidth(1))+' mV')
+        chain.Project(name, 'amp['+str(k)+']')
 
         h.GetXaxis().SetRange(int(40/5.5)+1,int(450/5.5)+1)
         i_max = h.GetMaximumBin()
         h.GetXaxis().SetRange(1,100)
         peak = h.GetBinCenter(i_max)
-        conf['amp_range'] = [max(20,peak*0.6), min(450, peak*1.6)]
-        res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
-        #     h.SetOptStat
-        lowLimit = rt.TLine(conf['amp_range'][0], 0, conf['amp_range'][0],h.GetBinContent(i_max)) 
-        highLimit = rt.TLine(conf['amp_range'][1], 0, conf['amp_range'][1],h.GetBinContent(i_max)) 
-        lowLimit.SetLineWidth(3)
-        highLimit.SetLineWidth(3)
-        lowLimit.SetLineStyle(9)
-        highLimit.SetLineStyle(9)
+        conf['amp_range'] = [max(40,peak*0.6), min(450, peak*1.7)]
+        conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
+        conf['amp_sel'] += ' && '
+        conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
 
+        res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
 
         if 'Amp' in configurations.plots:
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['amp'][k].SetLogy()
             h.DrawCopy('E1')
-            lowLimit.Draw("same")
-            highLimit.Draw("same")
-            canvas['amp'][k].donotdelete = [lowLimit, highLimit]
+
+            line = rt.TLine()
+            line.SetLineColor(6)
+            line.SetLineWidth(2)
+            line.SetLineStyle(10)
+            line.DrawLine(conf['amp_range'][0], 0, conf['amp_range'][0], h.GetBinContent(i_max))
+            line.DrawLine(conf['amp_range'][1], 0, conf['amp_range'][1], h.GetBinContent(i_max))
+
             canvas['amp'][k].Update()
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
-
-        # Compute the selection and save it to the
-        conf['amp_sel'] = np.logical_and(np.greater(amp,conf['amp_range'][0]), np.less(amp, conf['amp_range'][1]))
 
 
         '''=========================== Integral ==========================='''
@@ -146,10 +181,10 @@ if __name__ == '__main__':
 
             name = 'h_int_'+str(k)
             title = 'Integral channel '+str(k)
-            integral = -(data['integral'].T)[k]
-            h = create_TH1D(integral, name, title,
-                            binning = [100, np.min(integral), np.max(integral)],
-                            axis_title = ['Integral [pC]', 'Events'])
+            h = rt.TH1D(name, title, 100, 0, 550)
+            h.SetXTitle('Integral [pC]')
+            h.SetYTitle('Events / '+str(h.GetBinWidth(1))+' mV')
+            chain.Project(name, '-integral['+str(k)+']')
 
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['int'][k].SetLogy()
@@ -157,19 +192,44 @@ if __name__ == '__main__':
             canvas['int'][k].Update()
             canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
 
+        '''=========================== Risetime ======================================='''
+        if 'Risetime' in configurations.plots:
+            canvas['risetime'][k] = rt.TCanvas('c_risetime_'+str(k), 'c_int_'+str(k), 800, 600)
+
+            t_low  = .0
+            t_high = 10;#20 ns range
+            nbins  = 100
+            name   = 'h_risetime_' + str(k)
+            title  = 'Risetime ' + str(k)
+            h      = rt.TH1D(name, title, nbins, t_low, t_high)
+            h.SetXTitle('risetime [ns]')
+            h.SetYTitle('events /' + str(h.GetBinWidth(1)) + 'ns')
+            if conf['idx_ref'] == -1:#do not apply cut again on reference channels
+                cut = conf['amp_sel']
+            else:
+                cut = conf['amp_sel'] + '&&' + configurations.channel[conf['idx_ref']]['amp_sel']
+
+            chain.Project(name, 'risetime['+str(k)+']', cut)
+
+            if (h.GetMaximum() - h.GetMinimum() > 50000):
+                canvas.SetLogy()
+
+            ##ploting histogram
+            h.DrawCopy('E1')
+            canvas['risetime'][k].Update()
+            canvas['risetime'][k].SaveAs(out_dir+'/risetime_ch'+str(k)+'.png')
+
 
         '''=========================== Waveform color chart ==========================='''
-        if 'WaveColor' in configurations.plots:
+        if ('WaveColor' in configurations.plots):
             name = 'h_wave_'+str(k)
             title = 'Waveform color chart channel '+str(k)
 
-            ch = data['channel'][:,k].flatten()
-            t = data['time'][:,conf['idx_time']].flatten()
+            h = rt.TH2D(name, title, 250, 0, 210, 250, -600, 600)
+            h.SetXTitle('Time [ns]')
+            h.SetYTitle('Voltage [mV]')
 
-            h = create_TH2D(np.column_stack((t,ch)), name, title,
-            binning = [250, 0, np.max(t), 250, np.min(ch), np.max(ch)],
-            axis_title = ['Time [ns]', 'Voltage [mV]']
-            )
+            chain.Project(name, 'channel[{}]:time[{}]'.format(k,conf['idx_time']))
 
             h.SetStats(0)
             canvas['wave'][k] = rt.TCanvas('c_wave_'+str(k), 'c_wave_'+str(k), 800, 600)
@@ -182,73 +242,75 @@ if __name__ == '__main__':
 
         '''=========================== Track position ==========================='''
         if conf['idx_dut'] >= 0:
-            name = 'h_pos_'+str(k)
-            title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '], for channel amp['+str(k)+'] in {'
-            title += str(conf['amp_range'][0]) + ', ' + str(conf['amp_range'][1]) + '} mV'
-
-
-            x = (data['x_dut'].T)[conf['idx_dut']]
-            y = (data['y_dut'].T)[conf['idx_dut']]
-
-            sel = np.logical_and(conf["amp_sel"], np.greater(x, -998))
-            sel = np.logical_and(sel, np.greater(y, -998))
-
-            x = x[sel]
-            y = y[sel]
-
-            h = create_TH2D(np.column_stack((x,y)), name, title,
-                            binning = [100, np.min(x), np.max(x)+0.3*np.std(x), 100, np.min(y), np.max(y)+0.3*np.std(x)],
-                            axis_title = ['x [mm]', 'y [mm]']
-                           )
-
-            canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
-            h.DrawCopy('colz')
-
+            var = 'y_dut[{}]:x_dut[{}]'.format(conf['idx_dut'], conf['idx_dut'])
+            dy = configurations.xy_center[1]
+            dx = configurations.xy_center[0]
+            width = configurations.xy_center[2]
             if 'PosRaw' in configurations.plots:
+                name = 'h_pos_'+str(k)
+                title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '], for channel amp['+str(k)+'] in {'
+                title += str(conf['amp_range'][0]) + ', ' + str(conf['amp_range'][1]) + '} mV'
+
+                h = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
+                h.SetXTitle('x [mm]')
+                h.SetYTitle('y [mm]')
+
+                chain.Project(name, var, conf['amp_sel'])
+
+
+                canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
+                h.DrawCopy('colz')
+
                 canvas['pos'][k].Update()
                 canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
 
-            name = 'h_weight_pos_'+str(k)
-            title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel amp['+str(k)+'] in {'
-            title += str(conf['amp_range'][0]) + ', ' + str(conf['amp_range'][1]) + '} mV'
-            h = create_TH2D(np.column_stack((x,y)), name, title, weights=amp[sel],
-                            binning = [250, np.min(x), np.max(x)+0.3*np.std(x), 250, np.min(y), np.max(y)+0.3*np.std(x)],
-                            axis_title = ['x [mm]', 'y [mm]']
-                           )
-
-
             if 'PosWeight' in configurations.plots:
+                name = 'h_weight_pos_'+str(k)
+                title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel amp['+str(k)+'] in {'
+                title += str(conf['amp_range'][0]) + ', ' + str(conf['amp_range'][1]) + '} mV'
+                h_w = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
+                h_w.SetXTitle('x [mm]')
+                h_w.SetYTitle('y [mm]')
+
+                weights = '('+ conf['amp_sel'] +') * amp[' + str(k) + ']'
+                chain.Project(name, var, weights)
+
+                if 'PosRaw' in configurations.plots:
+                    h_w.Divide(h)
+
                 canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
-                h.DrawCopy('colz')
+                h_w.DrawCopy('colz')
                 canvas['w_pos'][k].Update()
                 canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
 
 
         '''=========================== Raw time resolution ==========================='''
         if conf['idx_ref'] >= 0:
-            time_stamp = (data[conf['var_ref']].T)[k]
+            time_var_chref = configurations.channel[conf['idx_ref']]['var_ref']+'[{}]'.format(conf['idx_ref'])
+            time_var = conf['var_ref']+'[{}]'.format(k)
+            var = time_var + ' - ' + time_var_chref
 
-            var_chref = configurations.channel[conf['idx_ref']]['var_ref']
-            time_ref = (data[var_chref].T)[conf['idx_ref']]
+            selection = '('+ conf['amp_sel'] +') * (' + configurations.channel[conf['idx_ref']]['amp_sel'] +')'
 
-            delta_t_amp_selections = np.logical_and(conf['amp_sel'], configurations.channel[conf['idx_ref']]['amp_sel'])
-
-            delta_t = time_stamp - time_ref
-            delta_t = delta_t[delta_t_amp_selections]
+            delta_t = (tree2array(chain, var, selection).view(np.recarray).T)[0]
+            # print data
 
             name = 'h_delta_t_raw_'+str(k)
             title = 'Time resolution for channel '+str(k)
 
-            x_axis_title = conf['var_ref'] + '[{}]'.format(k) + ' - ' + var_chref + '[{}]'.format(conf['idx_ref']) + '  [ns]'
+            x_axis_title = var + '  [ns]'
 
             median = np.percentile(delta_t, 50)
-            width = np.abs(np.percentile(delta_t, 20) - np.percentile(delta_t, 80))
+            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
             h = create_TH1D(delta_t, name, title,
-                                binning = [ None, median-2*width, median+2*width],
+                                binning = [ None, median-3*width, median+3*width],
                                 axis_title = [x_axis_title, 'Events'])
 
-            res = h.Fit('gaus', 'LQSR', '', np.percentile(delta_t, 20), np.percentile(delta_t, 80))
+            low_edge = min(h.GetBinCenter(h.GetMaximumBin()-5), np.percentile(delta_t, 10))
+            upper_edge = min(h.GetBinCenter(h.GetMaximumBin()+8), np.percentile(delta_t, 95))
+
+            res = h.Fit('gaus', 'LQSR', '', low_edge, upper_edge)
 
             if 'TimeResRaw' in configurations.plots:
                 canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
@@ -256,4 +318,10 @@ if __name__ == '__main__':
                 canvas['t_res_raw'][k].Update()
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
 
-        '''=========================== Time resolution vs impact pointgit ==========================='''
+        # '''=========================== Time resolution vs impact pointgit ==========================='''
+
+    # Compile the php index.php file
+    current_dir = os.getcwd()
+    os.chdir(out_dir)
+    os.system('php ./index.php > web.html')
+    os.chdir(current_dir)
