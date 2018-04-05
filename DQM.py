@@ -24,7 +24,7 @@ def parsing():
 
 class Config:
     def __init__(self, infile):
-        self.raw_conf = open('config/VME_test.txt', 'r').readlines()
+        self.raw_conf = open(infile, 'r').readlines()
         self.channel = {}
         self.ch_ordered = []
         self.plots = []
@@ -143,8 +143,8 @@ if __name__ == '__main__':
         title = 'Amplitude channel '+str(k)
 
         h = rt.TH1D(name, title, 100, 3, 550)
-        h.SetXTitle('amplitude [mV]')
-        h.SetYTitle('events / '+str(h.GetBinWidth(1))+' mV')
+        h.SetXTitle('Peak amplitude [mV]')
+        h.SetYTitle('Events / '+str(h.GetBinWidth(1))+' mV')
         chain.Project(name, 'amp['+str(k)+']')
 
         h.GetXaxis().SetRange(int(40/5.5)+1,int(450/5.5)+1)
@@ -256,6 +256,7 @@ if __name__ == '__main__':
                 h.SetYTitle('y [mm]')
 
                 chain.Project(name, var, conf['amp_sel'])
+                # chain.Project(name, var, 'amp[{}]>200'.format(k))
 
 
                 canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
@@ -300,6 +301,9 @@ if __name__ == '__main__':
 
             x_axis_title = var + '  [ns]'
 
+            if ( len(delta_t) ==0):
+                print 'Empty delta'
+                continue
             median = np.percentile(delta_t, 50)
             width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
@@ -318,7 +322,22 @@ if __name__ == '__main__':
                 canvas['t_res_raw'][k].Update()
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
 
-        # '''=========================== Time resolution vs impact pointgit ==========================='''
+            # '''=========================== Time resolution vs impact point ==========================='''
+            # if conf['idx_dut'] >= 0 and 'ImpactCorrection' in configurations.plots:
+            #     i_s = conf['idx_dut']
+            #
+            #     selection += selection+' && ntracks>0'
+            #     bounds = {}
+            #     h = {}
+            #
+            #     for c in ['x','y']:
+            #         cc = (tree2array(chain, c+'_dut['+str(i_s)+']', selection).view(np.recarray).T)[0]
+            #         bounds[c] = [np.percentile(cc, 5), np.percentile(cc, 95)]
+            #         var = ''
+            #         h[c] = TH2D('h_'+c+'_space_dip', 'h_'+c+'_space_dip', 50, bounds[c][0], bounds[c][1], 50, low_edge, upper_edge)
+
+
+
 
     # Compile the php index.php file
     current_dir = os.getcwd()
