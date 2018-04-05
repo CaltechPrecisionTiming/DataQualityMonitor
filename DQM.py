@@ -124,6 +124,7 @@ if __name__ == '__main__':
     canvas = {}
     canvas['amp'] = {}
     canvas['int'] = {}
+    canvas['risetime'] = {}
     canvas['wave'] = {}
     canvas['pos'] = {}
     canvas['w_pos'] = {}
@@ -191,6 +192,28 @@ if __name__ == '__main__':
             h.DrawCopy('E1')
             canvas['int'][k].Update()
             canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
+
+        '''=========================== Risetime ======================================='''
+        if 'Risetime' in configurations.plots:
+            canvas['risetime'][k] = rt.TCanvas('c_risetime_'+str(k), 'c_int_'+str(k), 800, 600)
+
+            t_low  = .0
+            t_high = 20;#20 ns range
+            nbins  = 100
+            name   = 'h_risetime_' + str(k)
+            title  = 'Risetime ' + str(k)
+            h      = rt.TH1D(name, title, nbins, t_low, t_high)
+            h.SetXTitle('risetime [ns]')
+            h.SetYTitle('events /' + str(h.GetBinWidth(1)) + 'ns')
+            chain.Project(name, 'risetime['+str(k)+']')
+
+            if (h.GetMaximum() - h.GetMinimum() > 50000):
+                canvas.SetLogy()
+
+            ##ploting histogram
+            h.DrawCopy('E1')
+            canvas['risetime'][k].Update()
+            canvas['risetime'][k].SaveAs(out_dir+'/risetime_ch'+str(k)+'.png')
 
 
         '''=========================== Waveform color chart ==========================='''
