@@ -132,10 +132,11 @@ if __name__ == '__main__':
     canvas['space_corr'] = {}
     canvas['t_res_space'] = {}
     canvas['dt_vs_amp'] = {}
+    canvas['dtcorr_vs_amp'] = {}
 
     rt.gStyle.SetStatY(0.98);
     rt.gStyle.SetStatX(0.999);
-    rt.gStyle.SetStatW(0.15);
+    rt.gStyle.SetStatW(0.25);
     rt.gStyle.SetStatH(0.1);
     rt.gStyle.SetHistLineWidth(2);
 
@@ -148,7 +149,7 @@ if __name__ == '__main__':
         title = 'Amplitude channel '+str(k)
 
         amp_aux = (tree2array(chain, 'amp['+str(k)+']').view(np.recarray).T)[0]
-        h = rt.TH1D(name, title, 100, np.percentile(amp_aux, 5), np.percentile(amp_aux, 95))
+        h = rt.TH1D(name, title, 100, np.percentile(amp_aux, 2), np.percentile(amp_aux, 98))
         h.SetXTitle('Peak amplitude [mV]')
         h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
         chain.Project(name, 'amp['+str(k)+']')
@@ -443,6 +444,45 @@ if __name__ == '__main__':
 
                 canvas['dt_vs_amp'][k].Update()
                 canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch'+str(k)+'.png')
+
+                '''=========================== Time resolution vs amplitude and space ==========================='''
+                canvas['dtcorr_vs_amp'][k] = rt.TCanvas('dtcorr_vs_amp'+str(k), 'dtcorr_vs_amp'+str(k), 1000, 500)
+                canvas['dtcorr_vs_amp'][k].Divide(2)
+
+                h = create_TH2D(np.column_stack((arr['amp'], dt_space_corrected)), name='h_space_amp_dip'+str(k), title='h_space_amp_dip'+str(k),
+                                    binning=[50, conf['amp_range'][0], conf['amp_range'][1], 50, np.min(dt_space_corrected), np.max(dt_space_corrected)],
+                                    axis_title=['Amp [mV]', '#DeltaT [ns]']
+                                   )
+                canvas['dtcorr_vs_amp'][k].cd(1)
+                h.DrawCopy('colz')
+                prof = h.ProfileX('prof_corr_amp')
+                prof.SetLineColor(6)
+                prof.SetLineWidth(2)
+                prof.DrawCopy('SAMEE1')
+
+                f = rt.TF1('f_tcorr_amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', conf['amp_range'][0], conf['amp_range'][1])
+                coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
+                for j,a in enumerate(coeff):
+                    f.SetParameter(j, a)
+                conf['amp']['coeff_space_corr'] = np.flip(coeff, 0)
+                f.SetLineColor(8)
+                f.DrawCopy('SAMEL')
+
+
+                dt_amp_corrected = np.copy(dt_space_corrected) - np.polyval(conf['amp']['coeff_space_corr'], arr['amp'])
+
+                h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr', 'Time resolution amp corrected',
+                                binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
+                                axis_title = [var_dT+' [ns]', 'Events'])
+                f = rt.TF1('f_all_corr'+str(k),'gaus', np.percentile(dt_amp_corrected, 5), np.percentile(dt_amp_corrected, 95))
+                canvas['dtcorr_vs_amp'][k].cd(2)
+                h.Fit('f_all_corr'+str(k), 'LQR+')
+                h.DrawCopy('E1')
+                f.SetLineColor(2)
+                f.DrawCopy('SAME L')
+
+                canvas['dtcorr_vs_amp'][k].Update()
+                canvas['dtcorr_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_SpaceAmp_ch'+str(k)+'.png')
 
 
 
