@@ -159,7 +159,7 @@ if __name__ == '__main__':
         i_max = h.GetMaximumBin()
         h.GetXaxis().SetRange(1,200)
         peak = h.GetBinCenter(i_max)
-        conf['amp_range'] = [max(float(conf['amp_min']),peak*0.6), min(float(conf['amp_max']), peak*1.7)]
+        conf['amp_range'] = [max(float(conf['amp_min']),peak*0.6), min(float(conf['amp_max']), peak*1.7)+20]
         conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
         conf['amp_sel'] += ' && '
         conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
@@ -190,7 +190,7 @@ if __name__ == '__main__':
             name = 'h_int_'+str(k)
             title = 'Integral channel '+str(k)
             int_aux = (tree2array(chain, '-integral['+str(k)+']').view(np.recarray).T)[0]
-            h = rt.TH1D(name, title, 100, np.percentile(int_aux, 5), np.percentile(int_aux, 95))
+            h = rt.TH1D(name, title, 100, np.percentile(int_aux, 5), np.percentile(int_aux, 99.9))
             h.SetXTitle('Integral [pC]')
             h.SetYTitle('Events / {:.1f} pC'.format(h.GetBinWidth(1)))
             chain.Project(name, '-integral['+str(k)+']')
@@ -209,7 +209,11 @@ if __name__ == '__main__':
             name   = 'h_risetime_' + str(k)
             title  = 'Risetime ch' + str(k)
             rise_aux = (tree2array(chain, 'risetime['+str(k)+']').view(np.recarray).T)[0]
-            h      = rt.TH1D(name, title, 100, np.percentile(rise_aux, 5), np.percentile(rise_aux, 95))
+            bin_w = 200.0/1024
+            lower_bound = np.percentile(rise_aux, 5) - bin_w*0.5
+            upper_bound = np.percentile(rise_aux, 99) + bin_w*0.5
+            N_bins = (upper_bound - lower_bound) / bin_w
+            h      = rt.TH1D(name, title, int(N_bins), lower_bound, upper_bound)
             h.SetXTitle('Risetime [ns]')
             h.SetYTitle('Events / {:.1f} ns'.format(h.GetBinWidth(1)))
             if conf['idx_ref'] == -1:#do not apply cut again on reference channels
@@ -220,10 +224,10 @@ if __name__ == '__main__':
             chain.Project(name, 'risetime['+str(k)+']', cut)
 
             if (h.GetMaximum() - h.GetMinimum() > 50000):
-                canvas.SetLogy()
+                canvas['risetime'][k].SetLogy()
 
             ##ploting histogram
-            h.DrawCopy('LE')
+            h.DrawCopy('lE')
             canvas['risetime'][k].Update()
             canvas['risetime'][k].SaveAs(out_dir+'/risetime_ch'+str(k)+'.png')
 
@@ -314,7 +318,7 @@ if __name__ == '__main__':
 
             if 'TimeResRaw' in configurations.plots:
                 canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
-
+                h.Fit('gaus', 'LQR','', median-width, median+width)
                 h = h.DrawCopy('LE')
                 line = rt.TLine()
                 line.SetLineColor(6)
@@ -498,7 +502,8 @@ if __name__ == '__main__':
                 h = create_TH1D(dt_corr, 'h_dt_corr'+str(k), 'Time resolution one-shot correction',
                                 binning = [ None, np.min(dt_corr), np.max(dt_corr)],
                                 axis_title = [var_dT+' [ns]', 'Events'])
-                f = rt.TF1('f_corr'+str(k),'gaus', np.percentile(dt_corr, 10), np.percentile(dt_corr, 90))
+
+                f = rt.TF1('f_corr'+str(k),'gaus', np.percentile(dt_corr, 3), np.percentile(dt_corr, 97))
                 h.Fit('f_corr'+str(k), 'LQR+')
                 canvas['dt_corr'][k] = rt.TCanvas('c_dt_corr'+str(k), 'c_dt_corr'+str(k), 800, 600)
                 h.DrawCopy('E1')
