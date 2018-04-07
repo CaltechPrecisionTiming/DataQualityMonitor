@@ -1,10 +1,10 @@
 -->Print: Amp Int Risetime WaveColor PosRaw PosWeight TimeResRaw
 #-->Print: Amp TimeResRaw
 -->XYcenter-width: 20 20 15
-ch_num idx_time idx_dut idx_ref var_ref
-0 0 -1 -1 gaus_mean
-3 0 -1 0 LP2_10
-9 1 -1 -1 gaus_mean
-14 1 0 9 LP2_10
-#15 1 0 9 LP2_10
-16 1 0 9 LP2_10
+ch_num idx_time idx_dut idx_ref var_ref  amp_min amp_max
+0 0 -1 -1 gaus_mean 20 450
+3 0 -1 0 LP2_10 20 450
+9 1 -1 -1 gaus_mean 20 450
+14 1 0 9 LP2_10 20 450
+#15 1 0 9 LP2_10 20 450
+16 1 0 9 LP2_10 20 450

@@ -133,10 +133,11 @@ if __name__ == '__main__':
     canvas['t_res_space'] = {}
     canvas['dt_vs_amp'] = {}
     canvas['dtcorr_vs_amp'] = {}
+    canvas['dt_corr'] = {}
 
     rt.gStyle.SetStatY(0.98);
     rt.gStyle.SetStatX(0.999);
-    rt.gStyle.SetStatW(0.25);
+    rt.gStyle.SetStatW(0.22);
     rt.gStyle.SetStatH(0.1);
     rt.gStyle.SetHistLineWidth(2);
 
@@ -149,16 +150,16 @@ if __name__ == '__main__':
         title = 'Amplitude channel '+str(k)
 
         amp_aux = (tree2array(chain, 'amp['+str(k)+']').view(np.recarray).T)[0]
-        h = rt.TH1D(name, title, 100, np.percentile(amp_aux, 2), np.percentile(amp_aux, 98))
+        h = rt.TH1D(name, title, 200, min(float(conf['amp_min']), np.percentile(amp_aux, 1)), max(np.percentile(amp_aux, 99), float(conf['amp_max'])))
         h.SetXTitle('Peak amplitude [mV]')
         h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
         chain.Project(name, 'amp['+str(k)+']')
 
-        h.GetXaxis().SetRange(int(40/h.GetBinWidth(1))+1,int(450/h.GetBinWidth(1))+1)
+        h.GetXaxis().SetRange(int(float(conf['amp_min'])/h.GetBinWidth(1))+1,int(float(conf['amp_max'])/h.GetBinWidth(1))+1)
         i_max = h.GetMaximumBin()
-        h.GetXaxis().SetRange(1,100)
+        h.GetXaxis().SetRange(1,200)
         peak = h.GetBinCenter(i_max)
-        conf['amp_range'] = [max(40,peak*0.6), min(450, peak*1.7)]
+        conf['amp_range'] = [max(float(conf['amp_min']),peak*0.6), min(float(conf['amp_max']), peak*1.7)]
         conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
         conf['amp_sel'] += ' && '
         conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
@@ -167,8 +168,8 @@ if __name__ == '__main__':
 
         if 'Amp' in configurations.plots:
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
-            if(h.GetMaximum() - h.GetMinimum() > 5000):
-                canvas['amp'][k].SetLogy()
+            # if(h.GetMaximum() - h.GetMinimum() > 5000):
+            canvas['amp'][k].SetLogy()
             h.DrawCopy('LE')
 
             line = rt.TLine()
@@ -483,6 +484,30 @@ if __name__ == '__main__':
 
                 canvas['dtcorr_vs_amp'][k].Update()
                 canvas['dtcorr_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_SpaceAmp_ch'+str(k)+'.png')
+
+                '''=========================== Time resolution w/ one-shot corrections ==========================='''
+                def create_regression_input(x, y, amp):
+                    out = (np.ones_like(x), x, y, amp, x**2, y**2, amp**2, x*y, amp*x, amp*y)
+                    return np.column_stack(out)
+
+                inputs = create_regression_input(arr['x'], arr['y'], arr['amp'])
+                coeff, r, rank, s = np.linalg.lstsq(inputs, delta_t)
+
+                dt_corr = delta_t - np.dot(inputs, coeff)
+
+                h = create_TH1D(dt_corr, 'h_dt_corr'+str(k), 'Time resolution one-shot correction',
+                                binning = [ None, np.min(dt_corr), np.max(dt_corr)],
+                                axis_title = [var_dT+' [ns]', 'Events'])
+                f = rt.TF1('f_corr'+str(k),'gaus', np.percentile(dt_corr, 10), np.percentile(dt_corr, 90))
+                h.Fit('f_corr'+str(k), 'LQR+')
+                canvas['dt_corr'][k] = rt.TCanvas('c_dt_corr'+str(k), 'c_dt_corr'+str(k), 800, 600)
+                h.DrawCopy('E1')
+                f.SetLineColor(2)
+                f.DrawCopy('SAMEL')
+
+                canvas['dt_corr'][k].Update()
+                canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch'+str(k)+'.png')
+
 
 
 
