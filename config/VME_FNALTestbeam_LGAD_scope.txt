@@ -1,0 +1,6 @@
+-->Print: Amp Int Risetime PosRaw WaveColor PosWeight TimeResRaw
+-->XYcenter-width: 20 20 30
+ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
+1 0 -1 -1 LP1_10 80 130
+0 0 -1 1 LP2_10 25 60
+2 0 -1 1 LP2_10 100 200

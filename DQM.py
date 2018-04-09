@@ -136,8 +136,8 @@ if __name__ == '__main__':
     canvas['dt_corr'] = {}
 
     rt.gStyle.SetStatY(0.98);
-    rt.gStyle.SetStatX(0.999);
-    rt.gStyle.SetStatW(0.22);
+    rt.gStyle.SetStatX(1.);
+    rt.gStyle.SetStatW(0.2);
     rt.gStyle.SetStatH(0.1);
     rt.gStyle.SetHistLineWidth(2);
 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         title = 'Amplitude channel '+str(k)
 
         amp_aux = (tree2array(chain, 'amp['+str(k)+']').view(np.recarray).T)[0]
-        h = rt.TH1D(name, title, 200, min(float(conf['amp_min']), np.percentile(amp_aux, 1)), max(np.percentile(amp_aux, 99), float(conf['amp_max'])))
+        h = rt.TH1D(name, title, 80, min(float(conf['amp_min']), np.percentile(amp_aux, 1)), max(np.percentile(amp_aux, 99), float(conf['amp_max'])))
         h.SetXTitle('Peak amplitude [mV]')
         h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
         chain.Project(name, 'amp['+str(k)+']')
@@ -159,7 +159,8 @@ if __name__ == '__main__':
         i_max = h.GetMaximumBin()
         h.GetXaxis().SetRange(1,200)
         peak = h.GetBinCenter(i_max)
-        conf['amp_range'] = [max(float(conf['amp_min']),peak*0.6), min(float(conf['amp_max']), peak*1.7)+20]
+        # conf['amp_range'] = [max(float(conf['amp_min']),peak*0.6), min(float(conf['amp_max']), peak*1.7)+20]
+        conf['amp_range'] = [float(conf['amp_min']), float(conf['amp_max'])]
         conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
         conf['amp_sel'] += ' && '
         conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
@@ -411,46 +412,48 @@ if __name__ == '__main__':
                 canvas['t_res_space'][k].Update()
                 canvas['t_res_space'][k].SaveAs(out_dir + '/TimeResolution_space_ch'+str(k)+'.png')
 
-                '''=========================== Time resolution vs amplitude ==========================='''
-                conf['amp'] = {}
-                arr['amp'] = (tree2array(chain, 'amp['+str(k)+']', selection).view(np.recarray).T)[0]
-                canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 1000, 500)
-                canvas['dt_vs_amp'][k].Divide(2)
+            '''=========================== Time resolution vs amplitude ==========================='''
+            conf['amp'] = {}
+            arr['amp'] = (tree2array(chain, 'amp['+str(k)+']', selection).view(np.recarray).T)[0]
+            canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 1200, 600)
+            canvas['dt_vs_amp'][k].Divide(2)
 
-                h = create_TH2D(np.column_stack((arr['amp'], delta_t)), name='h_amp_dip', title='h_amp_dip',
-                                    binning=[50, conf['amp_range'][0], conf['amp_range'][1], 50, np.min(delta_t), np.max(delta_t)],
-                                    axis_title=['Amp [mV]', '#DeltaT [ns]']
-                                   )
-                canvas['dt_vs_amp'][k].cd(1)
-                h.DrawCopy('colz')
-                prof = h.ProfileX('prof_amp')
-                prof.SetLineColor(6)
-                prof.SetLineWidth(2)
-                prof.DrawCopy('SAMEE1')
+            h = create_TH2D(np.column_stack((arr['amp'], delta_t)), name='h_amp_dip', title='h_amp_dip',
+                                binning=[50, conf['amp_range'][0], conf['amp_range'][1], 50, np.min(delta_t), np.max(delta_t)],
+                                axis_title=['Amp [mV]', '#DeltaT [ns]']
+                               )
+            canvas['dt_vs_amp'][k].cd(1)
+            h.DrawCopy('colz')
+            prof = h.ProfileX('prof_amp')
+            prof.SetLineColor(6)
+            prof.SetLineWidth(2)
+            prof.DrawCopy('SAMEE1')
 
-                f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', conf['amp_range'][0], conf['amp_range'][1])
-                f.DrawCopy('SAMEL')
+            f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', conf['amp_range'][0], conf['amp_range'][1])
+            f.DrawCopy('SAMEL')
 
-                coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
-                for j,a in enumerate(coeff):
-                    f.SetParameter(j, a)
-                conf['amp']['coeff'] = np.flip(coeff, 0)
-                f.SetLineColor(8)
-                f.DrawCopy('SAMEL')
+            coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
+            for j,a in enumerate(coeff):
+                f.SetParameter(j, a)
+            conf['amp']['coeff'] = np.flip(coeff, 0)
+            f.SetLineColor(8)
+            f.DrawCopy('SAMEL')
 
 
-                dt_amp_corrected = np.copy(delta_t) - np.polyval(conf['amp']['coeff'], arr['amp'])
+            dt_amp_corrected = np.copy(delta_t) - np.polyval(conf['amp']['coeff'], arr['amp'])
 
-                h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr'+str(k), 'Time resolution amp corrected',
-                                binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
-                                axis_title = [var_dT+' [ns]', 'Events'])
-                canvas['dt_vs_amp'][k].cd(2)
-                h.DrawCopy('E1')
+            h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr'+str(k), 'Time resolution amp corrected',
+                            binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
+                            axis_title = [var_dT+' [ns]', 'Events'])
+            canvas['dt_vs_amp'][k].cd(2)
+            h.Fit('gaus', 'LQR','', np.percentile(dt_amp_corrected, 1), np.percentile(dt_amp_corrected, 99))
+            h.DrawCopy('E1')
 
-                canvas['dt_vs_amp'][k].Update()
-                canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch'+str(k)+'.png')
+            canvas['dt_vs_amp'][k].Update()
+            canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch'+str(k)+'.png')
 
-                '''=========================== Time resolution vs amplitude and space ==========================='''
+            '''=========================== Time resolution vs amplitude and space ==========================='''
+            if conf['idx_dut'] >= 0:
                 canvas['dtcorr_vs_amp'][k] = rt.TCanvas('dtcorr_vs_amp'+str(k), 'dtcorr_vs_amp'+str(k), 1000, 500)
                 canvas['dtcorr_vs_amp'][k].Divide(2)
 
