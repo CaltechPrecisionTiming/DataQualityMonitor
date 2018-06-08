@@ -12,9 +12,9 @@ def parsing():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="input root file", nargs='+')
     parser.add_argument("-C", "--config", type=str, default='config/VME_test.txt', help="Config file")
-    parser.add_argument("-S", "--save_loc", type=str, default='./', help="Saving location")
+    parser.add_argument("-S", "--save_loc", type=str, default='./out_plots/', help="Saving location")
 
-    parser.add_argument("-B", "--batch", default=False, action='store_true', help="Root batch mode")
+    parser.add_argument("-B", "--batch", default=True, action='store_false', help="Root batch mode")
 
     parser.add_argument("-N", "--runs_interval", default=None, type=int, help="Runs to run", nargs='+')
 

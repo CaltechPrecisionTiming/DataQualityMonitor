@@ -1,0 +1,16 @@
+-->Print: Amp Int Risetime TimeResRaw
+-->XYcenter-width: 20 20 30
+ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
+0 0 0 -1 gaus_mean 30 450
+1 0 2 0 LP2_10 30 450
+2 0 2 0 LP2_10 30 450
+3 0 2 0 LP2_10 30 450
+4 0 2 0 LP2_10 30 450
+5 0 2 0 LP2_10 30 450
+9 1 0 -1 gaus_mean 30 450
+11 1 0 9 LP2_10 30 450
+12 1 0 9 LP2_10 30 450
+13 1 0 9 LP2_10 30 450
+14 1 0 9 LP2_10 30 450
+15 1 0 9 LP2_10 30 450
+16 1 0 9 LP2_10 30 450
