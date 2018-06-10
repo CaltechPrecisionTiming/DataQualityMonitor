@@ -53,6 +53,32 @@ class Config:
                         self.channel[n][k] = val
 
 
+def define_range_around_peak(h, perc = [0.4, 0.4], m = 0):
+    SS = rt.TSpectrum()
+    n_pks = SS.Search(h, 1, "", 0.2)
+    i_max = 0
+    max = -1
+    y = SS.GetPositionY()
+    for i in range(n_pks):
+        if y[i] > max and SS.GetPositionX()[i] > m:
+            max = y[i]
+            i_max = i
+    n_pk = h.FindBin(SS.GetPositionX()[i_max])
+
+
+    thr = perc[0] * h.GetBinContent(n_pk)
+    n_low = n_pk
+    while h.GetBinContent(n_low) > thr and n_low > 1:
+        n_low -= 1
+    x_low = h.GetBinLowEdge(n_low)
+
+    thr = perc[1] * h.GetBinContent(n_pk)
+    n_up = n_pk
+    while h.GetBinContent(n_up) > thr and n_up < h.GetNbinsX():
+        n_up += 1
+    x_up = h.GetBinLowEdge(n_up) + h.GetBinWidth(n_up)
+    return x_low, x_up
+
 if __name__ == '__main__':
     cebefo_style()
 
@@ -147,67 +173,71 @@ if __name__ == '__main__':
         print '---> Channel', k
         conf = configurations.channel[k]
 
+        line = rt.TLine()
+        line.SetLineColor(6)
+        line.SetLineWidth(2)
+        line.SetLineStyle(10)
+
+        selection = '1'
+
         '''=========================== Amplitude ==========================='''
-        name = 'h_amp_'+str(k)
-        title = 'Amplitude channel '+str(k)
-
-        amp_aux = (tree2array(chain, 'amp['+str(k)+']').view(np.recarray).T)[0]
-
-        h = rt.TH1D(name, title, 80, min(float(conf['amp_min']), np.percentile(amp_aux, 1)), max(np.percentile(amp_aux, 99), float(conf['amp_max'])))
-        h.SetXTitle('Peak amplitude [mV]')
-        h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
-        chain.Project(name, 'amp['+str(k)+']')
-
-        h.GetXaxis().SetRange(int(float(conf['amp_min'])/h.GetBinWidth(1))+1,int(float(conf['amp_max'])/h.GetBinWidth(1))+1)
-        i_max = h.GetMaximumBin()
-        h.GetXaxis().SetRange(1,200)
-        peak = h.GetBinCenter(i_max)
-        # conf['amp_range'] = [max(float(conf['amp_min']),peak*0.6), min(float(conf['amp_max']), peak*1.7)+20]
-        conf['amp_range'] = [float(conf['amp_min']), float(conf['amp_max'])]
-        conf['amp_sel'] = '(amp['+str(k)+'] < ' + str(conf['amp_range'][1])
-        conf['amp_sel'] += ' && '
-        conf['amp_sel'] += 'amp['+str(k)+'] > ' + str(conf['amp_range'][0]) + ')'
-
-
         if 'Amp' in configurations.plots:
-            canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
-            # if(h.GetMaximum() - h.GetMinimum() > 5000):
-            # canvas['amp'][k].SetLogy()
-            h.DrawCopy('LE')
+            print '\tAmplitude'
+            name = 'h_amp_'+str(k)
+            title = 'Amplitude channel '+str(k)
 
-            line = rt.TLine()
-            line.SetLineColor(6)
-            line.SetLineWidth(2)
-            line.SetLineStyle(10)
-            line.DrawLine(conf['amp_range'][0], 0, conf['amp_range'][0], h.GetMaximum())
-            line.DrawLine(conf['amp_range'][1], 0, conf['amp_range'][1], h.GetMaximum())
+            amp_aux = np.concatenate(list(tree2array( chain, 'amp['+str(k)+']')))
+
+            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(900., np.percentile(amp_aux, 99)))
+            h.SetXTitle('Peak amplitude [mV]')
+            h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
+            chain.Project(name, 'amp['+str(k)+']')
+
+            x_low, x_up = define_range_around_peak(h, [0.35, 0.3], 20)
+
+            canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
+            h.DrawCopy('E')
+            line.DrawLine(x_low, 0, x_low, h.GetMaximum())
+            line.DrawLine(x_up, 0, x_up, h.GetMaximum())
 
             canvas['amp'][k].Update()
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
 
+            selection += ' && (amp[{}]>{} && amp[{}]<{})'.format(k, x_low, k, x_up)
 
         '''=========================== Integral ==========================='''
         if 'Int' in configurations.plots:
+            print '\tIntegral'
+
             canvas['int'][k] = rt.TCanvas('c_int_'+str(k), 'c_int_'+str(k), 800, 600)
 
             name = 'h_int_'+str(k)
             title = 'Integral channel '+str(k)
-            int_aux = (tree2array(chain, '-integral['+str(k)+']').view(np.recarray).T)[0]
-            h = rt.TH1D(name, title, 100, np.percentile(int_aux, 5), np.percentile(int_aux, 99.9))
+            int_aux = -np.concatenate(list(tree2array(chain, 'integral['+str(k)+']', 'integral['+str(k)+'] != 0')))
+            h = rt.TH1D(name, title, 100, np.percentile(int_aux, 0.1), np.percentile(int_aux, 99.9))
             h.SetXTitle('Integral [pC]')
             h.SetYTitle('Events / {:.1f} pC'.format(h.GetBinWidth(1)))
-            chain.Project(name, '-integral['+str(k)+']')
+            chain.Project(name, '-integral['+str(k)+']', '-integral['+str(k)+'] != 0')
 
-            res = h.Fit('landau','LQSR', '', conf['amp_range'][0], conf['amp_range'][1])
-            
+            x_low, x_up = define_range_around_peak(h, [0.25, 0.3], 1)
+
+            if conf['idx_ref'] >= 0:
+                res = h.Fit('landau','LQSR', '', x_low, x_up)
+
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['int'][k].SetLogy()
-            h.DrawCopy('LE')
+            h.DrawCopy('E')
+            line.DrawLine(x_low, 0, x_low, h.GetMaximum())
+            line.DrawLine(x_up, 0, x_up, h.GetMaximum())
+
             canvas['int'][k].Update()
             canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
 
+            selection += ' && (-integral[{}]>{} && -integral[{}]<{})'.format(k, x_low, k, x_up)
+
         '''=========================== Risetime ======================================='''
         if 'Risetime' in configurations.plots:
+            print '\tRisetime'
             canvas['risetime'][k] = rt.TCanvas('c_risetime_'+str(k), 'c_int_'+str(k), 800, 600)
 
             nbins  = 100
@@ -238,11 +268,13 @@ if __name__ == '__main__':
 
 
         '''=========================== Waveform color chart ==========================='''
-        if ('WaveColor' in configurations.plots):
+        if 'WaveColor' in configurations.plots:
+            print '\tWaveColor'
+
             name = 'h_wave_'+str(k)
             title = 'Waveform color chart channel '+str(k)
 
-            h = rt.TH2D(name, title, 250, 0, 210, 250, -600, 600)
+            h = rt.TH2D(name, title, 250, 0, 210, 250, -1100, 600)
             h.SetXTitle('Time [ns]')
             h.SetYTitle('Voltage [mV]')
 
@@ -255,276 +287,230 @@ if __name__ == '__main__':
             h.DrawCopy('colz')
             canvas['wave'][k].Update()
             canvas['wave'][k].SaveAs(out_dir + '/Waveform_ch'+str(k)+'.png')
-    #
-    #
-    #     '''=========================== Track position ==========================='''
-    #     if conf['idx_dut'] >= 0:
-    #         var = 'y_dut[{}]:x_dut[{}]'.format(conf['idx_dut'], conf['idx_dut'])
-    #         dy = configurations.xy_center[1]
-    #         dx = configurations.xy_center[0]
-    #         width = configurations.xy_center[2]
-    #         if 'PosRaw' in configurations.plots:
-    #             name = 'h_pos_'+str(k)
-    #             title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '], for channel amp['+str(k)+'] in {'
-    #             title += str(conf['amp_range'][0]) + ', ' + str(conf['amp_range'][1]) + '} mV'
-    #
-    #             h = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
-    #             h.SetXTitle('x [mm]')
-    #             h.SetYTitle('y [mm]')
-    #
-    #             chain.Project(name, var, conf['amp_sel'])
-    #
-    #             canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
-    #             h.DrawCopy('colz')
-    #
-    #             canvas['pos'][k].Update()
-    #             canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
-    #
-    #         if 'PosWeight' in configurations.plots:
-    #             name = 'h_weight_pos_'+str(k)
-    #             title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel amp['+str(k)+'] in {'
-    #             title += str(conf['amp_range'][0]) + ', ' + str(conf['amp_range'][1]) + '} mV'
-    #             h_w = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
-    #             h_w.SetXTitle('x [mm]')
-    #             h_w.SetYTitle('y [mm]')
-    #
-    #             weights = '('+ conf['amp_sel'] +') * amp[' + str(k) + ']'
-    #             chain.Project(name, var, weights)
-    #
-    #             if 'PosRaw' in configurations.plots:
-    #                 h_w.Divide(h)
-    #
-    #             canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
-    #             h_w.DrawCopy('colz')
-    #             canvas['w_pos'][k].Update()
-    #             canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
-    #
-    #
-    #     '''=========================== Raw time resolution ==========================='''
-    #     if conf['idx_ref'] >= 0:
-    #         time_var_chref = configurations.channel[conf['idx_ref']]['var_ref']+'[{}]'.format(conf['idx_ref'])
-    #         time_var = conf['var_ref']+'[{}]'.format(k)
-    #         var_dT = time_var + ' - ' + time_var_chref
-    #
-    #         selection = conf['amp_sel'] +' && ' + configurations.channel[conf['idx_ref']]['amp_sel']
-    #
-    #         delta_t = (tree2array(chain, var_dT, selection).view(np.recarray).T)[0]
-    #         if ( len(delta_t) ==0):
-    #             print 'Empty delta'
-    #             continue
-    #         median = np.percentile(delta_t, 50)
-    #         width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
-    #
-    #         name = 'h_delta_t_raw_'+str(k)
-    #         title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
-    #         h = create_TH1D(delta_t, name, title,
-    #                             binning = [ None, median-2*width, median+2*width],
-    #                             axis_title = [var_dT + ' [ns]', 'Events'])
-    #
-    #         if 'TimeResRaw' in configurations.plots:
-    #             canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
-    #             h.Fit('gaus', 'LQR','', median-width, median+width)
-    #             h = h.DrawCopy('LE')
-    #             line = rt.TLine()
-    #             line.SetLineColor(6)
-    #             line.SetLineWidth(2)
-    #             line.SetLineStyle(7)
-    #             line.DrawLine(median-width, 0, median-width, h.GetMaximum())
-    #             line.DrawLine(median+width, 0, median+width, h.GetMaximum())
-    #             canvas['t_res_raw'][k].Update()
-    #             canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
-    #
-    #         selection += '&& ({}>{} && {}<{})'.format(var_dT, median-width, var_dT, median+width)
-    #         delta_t = (tree2array(chain, var_dT, selection).view(np.recarray).T)[0]
-    #         arr = {}
-    #         '''=========================== Time resolution vs impact point ==========================='''
-    #         if conf['idx_dut'] >= 0:
-    #             i_s = conf['idx_dut']
-    #
-    #             name = 'c_space_corr'+str(k)
-    #             canvas['space_corr'][k] = rt.TCanvas(name, name, 1000, 600)
-    #             canvas['space_corr'][k].Divide(2)
-    #             add_sel = ''
-    #
-    #             selection += ' && ntracks > 0'
-    #             delta_t = (tree2array(chain, var_dT, selection).view(np.recarray).T)[0]
-    #
-    #             for i, c in enumerate(['x', 'y']):
-    #                 conf[c] = {}
-    #                 pos = (tree2array(chain, c+'_dut[0]', selection).view(np.recarray).T)[0]
-    #                 conf[c]['pl'] = np.percentile(pos, 10)
-    #                 conf[c]['ph'] = np.percentile(pos, 90)
-    #                 add_sel += ' && '+c+'_dut['+str(i_s)+'] > ' + str(conf[c]['pl']) + ' && '+c+'_dut['+str(i_s)+'] < ' + str(conf[c]['ph'])
-    #
-    #                 canvas['space_corr'][k].cd(i+1)
-    #                 h = create_TH2D(np.column_stack((pos, delta_t)), name=c+name, title='Time resolution '+c+' dependence',
-    #                                 binning=[50, conf[c]['pl']-4, conf[c]['ph']+4, 50, median-2*width, median+2*width],
-    #                                 axis_title=[c+' [mm]', '#DeltaT [ns]']
-    #                                )
-    #
-    #                 h.DrawCopy('COLZ')
-    #
-    #                 prof = h.ProfileX('prof_'+c )
-    #                 prof.SetLineColor(2)
-    #                 prof.SetLineWidth(2)
-    #
-    #                 f = rt.TF1(c+'_fit','[0]+[1]*x+[2]*x^2',conf[c]['pl'], conf[c]['ph'])
-    #
-    #                 aux_t = delta_t[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
-    #                 pos = pos[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
-    #                 coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t)
-    #                 for j,a in enumerate(coeff):
-    #                     f.SetParameter(j, a)
-    #                 conf[c]['coeff'] = np.flip(coeff, 0)
-    #                 f.SetLineColor(8)
-    #                 f.DrawCopy('SAMEL')
-    #
-    #                 prof.DrawCopy('SAMEE')
-    #
-    #             canvas['space_corr'][k].Update()
-    #             canvas['space_corr'][k].SaveAs(out_dir + '/TimeResolution_Position_dependece_ch'+str(k)+'.png')
-    #
-    #
-    #             line = rt.TLine()
-    #             line.SetLineColor(6)
-    #             line.SetLineStyle(7)
-    #             line.SetLineWidth(3)
-    #             for can in [canvas['pos'][k], canvas['w_pos'][k]]:
-    #                 can.cd()
-    #                 line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['pl'], conf['y']['ph'])
-    #                 line.DrawLine(conf['x']['ph'], conf['y']['pl'], conf['x']['ph'], conf['y']['ph'])
-    #                 line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['ph'], conf['y']['pl'])
-    #                 line.DrawLine(conf['x']['pl'], conf['y']['ph'], conf['x']['ph'], conf['y']['ph'])
-    #             canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
-    #             canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
-    #
-    #             selection += add_sel
-    #             arr['x'] = (tree2array(chain, 'x_dut[0]', selection).view(np.recarray).T)[0]
-    #             arr['y'] = (tree2array(chain, 'y_dut[0]', selection).view(np.recarray).T)[0]
-    #             delta_t = (tree2array(chain, var_dT, selection).view(np.recarray).T)[0]
-    #
-    #             dt_space_corrected = np.copy(delta_t)
-    #             for c in ['x', 'y']:
-    #                 dt_space_corrected -= np.polyval(conf[c]['coeff'], arr[c])
-    #
-    #             h = create_TH1D(dt_space_corrected, 'h_delta_space_corr'+str(k), 'Time resolution space corrected ch '+str(k),
-    #                             binning = [ None, np.min(dt_space_corrected), np.max(dt_space_corrected)],
-    #                             axis_title = [var_dT+' [ns]', 'Events'])
-    #
-    #             canvas['t_res_space'][k] = rt.TCanvas('c_t_res_space'+str(k), 'c_t_res_raw'+str(k), 700, 500)
-    #             h.DrawCopy('E1')
-    #             canvas['t_res_space'][k].Update()
-    #             canvas['t_res_space'][k].SaveAs(out_dir + '/TimeResolution_space_ch'+str(k)+'.png')
-    #
-    #         '''=========================== Time resolution vs amplitude ==========================='''
-    #         conf['amp'] = {}
-    #         arr['amp'] = (tree2array(chain, 'amp['+str(k)+']', selection).view(np.recarray).T)[0]
-    #         canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 1200, 600)
-    #         canvas['dt_vs_amp'][k].Divide(2)
-    #
-    #         h = create_TH2D(np.column_stack((arr['amp'], delta_t)), name='h_amp_dip', title='h_amp_dip',
-    #                             binning=[50, conf['amp_range'][0], conf['amp_range'][1], 50, np.min(delta_t), np.max(delta_t)],
-    #                             axis_title=['Amp [mV]', '#DeltaT [ns]']
-    #                            )
-    #         canvas['dt_vs_amp'][k].cd(1)
-    #         h.DrawCopy('colz')
-    #         prof = h.ProfileX('prof_amp')
-    #         prof.SetLineColor(6)
-    #         prof.SetLineWidth(2)
-    #         prof.DrawCopy('SAMEE1')
-    #
-    #         f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', conf['amp_range'][0], conf['amp_range'][1])
-    #         f.DrawCopy('SAMEL')
-    #
-    #         coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
-    #         for j,a in enumerate(coeff):
-    #             f.SetParameter(j, a)
-    #         conf['amp']['coeff'] = np.flip(coeff, 0)
-    #         f.SetLineColor(8)
-    #         f.DrawCopy('SAMEL')
-    #
-    #
-    #         dt_amp_corrected = np.copy(delta_t) - np.polyval(conf['amp']['coeff'], arr['amp'])
-    #
-    #         h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr'+str(k), 'Time resolution amp corrected',
-    #                         binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
-    #                         axis_title = [var_dT+' [ns]', 'Events'])
-    #         canvas['dt_vs_amp'][k].cd(2)
-    #         h.Fit('gaus', 'LQR','', np.percentile(dt_amp_corrected, 1), np.percentile(dt_amp_corrected, 99))
-    #         h.DrawCopy('E1')
-    #
-    #         canvas['dt_vs_amp'][k].Update()
-    #         canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch'+str(k)+'.png')
-    #
-    #         '''=========================== Time resolution vs amplitude and space ==========================='''
-    #         if conf['idx_dut'] >= 0:
-    #             canvas['dtcorr_vs_amp'][k] = rt.TCanvas('dtcorr_vs_amp'+str(k), 'dtcorr_vs_amp'+str(k), 1000, 500)
-    #             canvas['dtcorr_vs_amp'][k].Divide(2)
-    #
-    #             h = create_TH2D(np.column_stack((arr['amp'], dt_space_corrected)), name='h_space_amp_dip'+str(k), title='h_space_amp_dip'+str(k),
-    #                                 binning=[50, conf['amp_range'][0], conf['amp_range'][1], 50, np.min(dt_space_corrected), np.max(dt_space_corrected)],
-    #                                 axis_title=['Amp [mV]', '#DeltaT [ns]']
-    #                                )
-    #             canvas['dtcorr_vs_amp'][k].cd(1)
-    #             h.DrawCopy('colz')
-    #             prof = h.ProfileX('prof_corr_amp')
-    #             prof.SetLineColor(6)
-    #             prof.SetLineWidth(2)
-    #             prof.DrawCopy('SAMEE1')
-    #
-    #             f = rt.TF1('f_tcorr_amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', conf['amp_range'][0], conf['amp_range'][1])
-    #             coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
-    #             for j,a in enumerate(coeff):
-    #                 f.SetParameter(j, a)
-    #             conf['amp']['coeff_space_corr'] = np.flip(coeff, 0)
-    #             f.SetLineColor(8)
-    #             f.DrawCopy('SAMEL')
-    #
-    #
-    #             dt_amp_corrected = np.copy(dt_space_corrected) - np.polyval(conf['amp']['coeff_space_corr'], arr['amp'])
-    #
-    #             h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr', 'Time resolution amp corrected',
-    #                             binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
-    #                             axis_title = [var_dT+' [ns]', 'Events'])
-    #             f = rt.TF1('f_all_corr'+str(k),'gaus', np.percentile(dt_amp_corrected, 5), np.percentile(dt_amp_corrected, 95))
-    #             canvas['dtcorr_vs_amp'][k].cd(2)
-    #             h.Fit('f_all_corr'+str(k), 'LQR+')
-    #             h.DrawCopy('E1')
-    #             f.SetLineColor(2)
-    #             f.DrawCopy('SAME L')
-    #
-    #             canvas['dtcorr_vs_amp'][k].Update()
-    #             canvas['dtcorr_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_SpaceAmp_ch'+str(k)+'.png')
-    #
-    #             '''=========================== Time resolution w/ one-shot corrections ==========================='''
-    #             def create_regression_input(x, y, amp):
-    #                 out = (np.ones_like(x), x, y, amp, x**2, y**2, amp**2, x*y, amp*x, amp*y)
-    #                 return np.column_stack(out)
-    #
-    #             inputs = create_regression_input(arr['x'], arr['y'], arr['amp'])
-    #             coeff, r, rank, s = np.linalg.lstsq(inputs, delta_t)
-    #
-    #             dt_corr = delta_t - np.dot(inputs, coeff)
-    #
-    #             h = create_TH1D(dt_corr, 'h_dt_corr'+str(k), 'Time resolution one-shot correction',
-    #                             binning = [ None, np.min(dt_corr), np.max(dt_corr)],
-    #                             axis_title = [var_dT+' [ns]', 'Events'])
-    #
-    #             f = rt.TF1('f_corr'+str(k),'gaus', np.percentile(dt_corr, 3), np.percentile(dt_corr, 97))
-    #             h.Fit('f_corr'+str(k), 'LQR+')
-    #             canvas['dt_corr'][k] = rt.TCanvas('c_dt_corr'+str(k), 'c_dt_corr'+str(k), 800, 600)
-    #             h.DrawCopy('E1')
-    #             f.SetLineColor(2)
-    #             f.DrawCopy('SAMEL')
-    #
-    #             canvas['dt_corr'][k].Update()
-    #             canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch'+str(k)+'.png')
-    #
-    #
-    #
-    #
-    # # Compile the php index.php file
-    # current_dir = os.getcwd()
-    # os.chdir(out_dir)
-    # os.system('php ./index.php > web.html')
-    # os.chdir(current_dir)
+
+        '''=========================== Track position ==========================='''
+        if conf['idx_dut'] >= 0:
+            var = 'y_dut[{}]:x_dut[{}]'.format(conf['idx_dut'], conf['idx_dut'])
+            dy = configurations.xy_center[1]
+            dx = configurations.xy_center[0]
+            width = configurations.xy_center[2]
+            if 'PosRaw' in configurations.plots:
+                name = 'h_pos_'+str(k)
+                title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '], for channel {} selected event'.format(k)
+
+                h = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
+                h.SetXTitle('x [mm]')
+                h.SetYTitle('y [mm]')
+
+                chain.Project(name, var, selection)
+
+                canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
+                h.DrawCopy('colz')
+
+                canvas['pos'][k].Update()
+                canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
+
+                if 'PosWeight' in configurations.plots:
+                    name = 'h_weight_pos_'+str(k)
+                    title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel {} selected event'.format(k)
+                    h_w = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
+                    h_w.SetXTitle('x [mm]')
+                    h_w.SetYTitle('y [mm]')
+                    h_w.SetZTitle('Average Integral [pC]')
+
+                    weights = '('+ selection +') * amp[' + str(k) + ']'
+                    chain.Project(name, var, weights)
+
+                    if 'PosRaw' in configurations.plots:
+                        h_w.Divide(h)
+
+                        canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
+                        h_w.DrawCopy('colz')
+                        canvas['w_pos'][k].Update()
+                        canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
+
+        '''=========================== End Selections ==========================='''
+        conf['sel'] =  selection
+
+
+        '''=========================== Raw time resolution ==========================='''
+        if conf['idx_ref'] >= 0:
+            time_var_chref = configurations.channel[conf['idx_ref']]['var_ref']+'[{}]'.format(conf['idx_ref'])
+            time_var = conf['var_ref']+'[{}]'.format(k)
+            var_dT = time_var + ' - ' + time_var_chref
+
+            selection = conf['sel'] +' && ' + configurations.channel[conf['idx_ref']]['sel']
+
+            delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
+            if ( len(delta_t) ==0):
+                print 'Empty delta'
+                continue
+
+            median = np.percentile(delta_t, 50)
+            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
+
+            name = 'h_delta_t_raw_'+str(k)
+            title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
+            h = create_TH1D(delta_t, name, title,
+                                binning = [ None, median-2*width, median+2*width],
+                                axis_title = [var_dT + ' [ns]', 'Events'])
+
+            if 'TimeResRaw' in configurations.plots:
+                print '\tTimeResRaw'
+                canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
+                h.Fit('gaus', 'LQR','', median-width, median+width)
+                h = h.DrawCopy('LE')
+                line = rt.TLine()
+                line.SetLineColor(6)
+                line.SetLineWidth(2)
+                line.SetLineStyle(7)
+                line.DrawLine(median-width, 0, median-width, h.GetMaximum())
+                line.DrawLine(median+width, 0, median+width, h.GetMaximum())
+                canvas['t_res_raw'][k].Update()
+                canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
+
+            selection += '&& ({}>{} && {}<{})'.format(var_dT, median-width, var_dT, median+width)
+            delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
+            arr = {}
+
+            '''=========================== Time resolution vs impact point ==========================='''
+            i_s = conf['idx_dut']
+
+            name = 'c_space_corr'+str(k)
+            canvas['space_corr'][k] = rt.TCanvas(name, name, 1000, 600)
+            canvas['space_corr'][k].Divide(2)
+
+            selection += ' && ntracks == 1 && chi2 < 8'
+            delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
+
+            add_sel = ''
+            for i, c in enumerate(['x', 'y']):
+                conf[c] = {}
+                pos = np.concatenate(list(tree2array(chain, c+'_dut[0]', selection)))
+                conf[c]['pl'] = np.percentile(pos, 5)
+                conf[c]['ph'] = np.percentile(pos, 90)
+                add_sel += ' && '+c+'_dut['+str(i_s)+'] > ' + str(conf[c]['pl']) + ' && '+c+'_dut['+str(i_s)+'] < ' + str(conf[c]['ph'])
+
+                canvas['space_corr'][k].cd(i+1)
+                h = create_TH2D(np.column_stack((pos, delta_t)), name=c+name, title='Time resolution '+c+' dependence',
+                                binning=[50, conf[c]['pl']-4, conf[c]['ph']+4, 50, median-2*width, median+2*width],
+                                axis_title=[c+' [mm]', '#DeltaT [ns]']
+                               )
+
+                h.DrawCopy('COLZ')
+
+                prof = h.ProfileX('prof_'+c )
+                prof.SetLineColor(2)
+                prof.SetLineWidth(2)
+
+                f = rt.TF1(c+'_fit','[0]+[1]*x+[2]*x^2',conf[c]['pl'], conf[c]['ph'])
+
+                aux_t = delta_t[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
+                pos = pos[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
+                coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t)
+                for j,a in enumerate(coeff):
+                    f.SetParameter(j, a)
+                conf[c]['coeff'] = np.flipud(coeff)
+                f.SetLineColor(8)
+                f.DrawCopy('SAMEL')
+
+                prof.DrawCopy('SAMEE')
+
+            canvas['space_corr'][k].Update()
+            canvas['space_corr'][k].SaveAs(out_dir + '/TimeResolution_Position_dependece_ch'+str(k)+'.png')
+
+
+            line = rt.TLine()
+            line.SetLineColor(6)
+            line.SetLineStyle(7)
+            line.SetLineWidth(3)
+            for can in [canvas['pos'][k], canvas['w_pos'][k]]:
+                can.cd()
+                line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['pl'], conf['y']['ph'])
+                line.DrawLine(conf['x']['ph'], conf['y']['pl'], conf['x']['ph'], conf['y']['ph'])
+                line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['ph'], conf['y']['pl'])
+                line.DrawLine(conf['x']['pl'], conf['y']['ph'], conf['x']['ph'], conf['y']['ph'])
+            canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
+            canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
+
+            selection += add_sel
+            arr['x'] = np.concatenate(list(tree2array(chain, 'x_dut[0]', selection)))
+            arr['y'] = np.concatenate(list(tree2array(chain, 'y_dut[0]', selection)))
+            delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
+
+            dt_space_corrected = np.copy(delta_t)
+            for c in ['x', 'y']:
+                dt_space_corrected -= np.polyval(conf[c]['coeff'], arr[c])
+
+            h = create_TH1D(dt_space_corrected, 'h_delta_space_corr'+str(k), 'Time resolution space corrected ch '+str(k),
+                            binning = [ None, np.min(dt_space_corrected), np.max(dt_space_corrected)],
+                            axis_title = [var_dT+' [ns]', 'Events'])
+
+            canvas['t_res_space'][k] = rt.TCanvas('c_t_res_space'+str(k), 'c_t_res_raw'+str(k), 700, 500)
+            h.DrawCopy('E1')
+            canvas['t_res_space'][k].Update()
+            canvas['t_res_space'][k].SaveAs(out_dir + '/TimeResolution_space_ch'+str(k)+'.png')
+
+            '''=========================== Time resolution vs amplitude ==========================='''
+            conf['amp'] = {}
+            arr['amp'] = np.concatenate(list(tree2array(chain, 'amp['+str(k)+']', selection)))
+            canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 1200, 600)
+            canvas['dt_vs_amp'][k].Divide(2)
+
+            h = create_TH2D(np.column_stack((arr['amp'], delta_t)), name='h_amp_dip', title='h_amp_dip',
+                                binning=[50, np.min(arr['amp']), np.max(arr['amp']), 50, np.min(delta_t), np.max(delta_t)],
+                                axis_title=['Amp [mV]', '#DeltaT [ns]']
+                               )
+            canvas['dt_vs_amp'][k].cd(1)
+            h.DrawCopy('colz')
+            prof = h.ProfileX('prof_amp')
+            prof.SetLineColor(6)
+            prof.SetLineWidth(2)
+            prof.DrawCopy('SAMEE1')
+
+            f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', np.min(arr['amp']), np.max(arr['amp']))
+            f.DrawCopy('SAMEL')
+
+            coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
+            for j,a in enumerate(coeff):
+                f.SetParameter(j, a)
+            conf['amp']['coeff'] = np.flipud(coeff)
+            f.SetLineColor(8)
+            f.DrawCopy('SAMEL')
+
+
+            dt_amp_corrected = np.copy(delta_t) - np.polyval(conf['amp']['coeff'], arr['amp'])
+
+            h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr'+str(k), 'Time resolution amp corrected',
+                            binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
+                            axis_title = [var_dT+' [ns]', 'Events'])
+            canvas['dt_vs_amp'][k].cd(2)
+            h.Fit('gaus', 'LQR','', np.percentile(dt_amp_corrected, 1), np.percentile(dt_amp_corrected, 99))
+            h.DrawCopy('E1')
+
+            canvas['dt_vs_amp'][k].Update()
+            canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch'+str(k)+'.png')
+
+            '''=========================== Time resolution w/ one-shot corrections ==========================='''
+            def create_regression_input(x, y, amp):
+                out = (np.ones_like(x), x, y, amp, x**2, y**2, amp**2, x*y, amp*x, amp*y)
+                return np.column_stack(out)
+
+            inputs = create_regression_input(arr['x'], arr['y'], arr['amp'])
+            coeff, r, rank, s = np.linalg.lstsq(inputs, delta_t)
+
+            dt_corr = delta_t - np.dot(inputs, coeff)
+
+            h = create_TH1D(dt_corr, 'h_dt_corr'+str(k), 'Time resolution one-shot correction',
+                            binning = [ None, np.min(dt_corr), np.max(dt_corr)],
+                            axis_title = [var_dT+' [ns]', 'Events'])
+
+            f = rt.TF1('f_corr'+str(k),'gaus', np.percentile(dt_corr, 3), np.percentile(dt_corr, 97))
+            h.Fit('f_corr'+str(k), 'LQR+')
+            canvas['dt_corr'][k] = rt.TCanvas('c_dt_corr'+str(k), 'c_dt_corr'+str(k), 800, 600)
+            h.DrawCopy('E1')
+            f.SetLineColor(2)
+            f.DrawCopy('SAMEL')
+
+            canvas['dt_corr'][k].Update()
+            canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch'+str(k)+'.png')
