@@ -11,7 +11,7 @@ from lib.cebefo_style import cebefo_style
 def parsing():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="input root file", nargs='+')
-    parser.add_argument("-C", "--config", type=str, default='config/VME_FNALTestbeam_180609.txt', help="Config file")
+    parser.add_argument("-C", "--config", type=str, default='config/VME_FNALTestbeam_180610.txt', help="Config file")
     parser.add_argument("-S", "--save_loc", type=str, default='./out_plots/', help="Saving location")
 
     parser.add_argument("-B", "--batch", default=True, action='store_false', help="Root batch mode")
@@ -336,10 +336,16 @@ if __name__ == '__main__':
         '''=========================== Raw time resolution ==========================='''
         if conf['idx_ref'] >= 0:
             time_var_chref = configurations.channel[conf['idx_ref']]['var_ref']+'[{}]'.format(conf['idx_ref'])
-            time_var = conf['var_ref']+'[{}]'.format(k)
+            time_var = conf['var_ref']
+
+            out = re.search('\[[0-9]+\]', time_var)
+            if out is None:
+                time_var += '[{}]'.format(k)
+
+
             var_dT = time_var + ' - ' + time_var_chref
 
-            selection = conf['sel'] +' && ' + configurations.channel[conf['idx_ref']]['sel']
+            selection = conf['sel'] +' && ' + configurations.channel[conf['idx_ref']]['sel'] + ' && {} != 0'.format(time_var)
 
             delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
             if ( len(delta_t) ==0):
@@ -411,7 +417,7 @@ if __name__ == '__main__':
                 for j,a in enumerate(coeff):
                     f.SetParameter(j, a)
                 conf[c]['coeff'] = np.flipud(coeff)
-                f.SetLineColor(8)
+                f.SetLineColor(6)
                 f.DrawCopy('SAMEL')
 
                 prof.DrawCopy('SAMEE')
@@ -453,6 +459,7 @@ if __name__ == '__main__':
 
             '''=========================== Time resolution vs amplitude ==========================='''
             conf['amp'] = {}
+            print selection
             arr['amp'] = np.concatenate(list(tree2array(chain, 'amp['+str(k)+']', selection)))
             canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 1200, 600)
             canvas['dt_vs_amp'][k].Divide(2)
@@ -475,7 +482,8 @@ if __name__ == '__main__':
             for j,a in enumerate(coeff):
                 f.SetParameter(j, a)
             conf['amp']['coeff'] = np.flipud(coeff)
-            f.SetLineColor(8)
+            f.SetLineColor(6)
+            f.SetLineStyle(9)
             f.DrawCopy('SAMEL')
 
 
