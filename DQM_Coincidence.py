@@ -295,17 +295,21 @@ if __name__ == '__main__':
             canvas['baseline_RMS'][k].SaveAs(out_dir + '/Baseline_RMS_ch'+str(k)+'.png')
 
         '''===========================================IL_2======================================'''
-        if 'IL_2' in configurations.plots:
-            print '\tIL_2'
+        if 'IL_2' in configurations.plots and k > 0:
+            print '\tIL_2[1] - IL_2[0]'
             canvas['IL_2'][k] = rt.TCanvas('c_IL_2_'+str(k), 'c_IL_2_'+str(k), 800, 600)
             name   = 'h_IL_2_' + str(k)
             title  = 'IL_2 ch' + str(k)
-            IL_2_aux = np.concatenate(list(tree2array( chain, 'IL_2['+str(k)+']')))
-            median = np.percentile(IL_2_aux, 50) # 50th percentile, median
-            width = np.abs(np.percentile(IL_2_aux, 10) - np.percentile(IL_2_aux, 90))
-            h = rt.TH1D(name, title, 80, median - 0.5 * width, median + 0.5 * width)
-            f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
-            h.Fit('multi_gaus', 'LR', '')
+            IL_2_chk = np.concatenate(list(tree2array( chain, 'IL_2['+str(k)+']')))
+            IL_2_ch0 = np.concatenate(list(tree2array( chain, 'IL_2['+str(0)+']')))
+            IL_2_chk_M_ch0 = []
+            for i in range(len(IL_2_chk)):
+                IL_2_chk_M_ch0.append(np.abs(IL_2_chk[i] - IL_2_ch0[i]))
+            median = np.percentile(IL_2_chk_M_ch0, 50) # 50th percentile, median
+            print('median ' + str(median))
+            width = np.abs(np.percentile(IL_2_chk_M_ch0, 10) - np.percentile(IL_2_chk_M_ch0, 90))
+            print('width ' + str(width))
+            h = rt.TH1D(name, title, 80, median - width, median + width)
             h.SetXTitle('IL_2 [ns]')
             h.SetYTitle('Events')
             chain.Project(name, 'IL_2['+str(k)+']')
@@ -542,3 +546,4 @@ if __name__ == '__main__':
             h.DrawCopy('E')
             canvas['IL_50'][k].Update()
             canvas['IL_50'][k].SaveAs(out_dir + '/IL_50_ch'+str(k)+'.png')
+
