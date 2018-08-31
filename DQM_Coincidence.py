@@ -306,11 +306,13 @@ if __name__ == '__main__':
             for i in range(len(IL_2_chk)):
                 IL_2_chk_M_ch0.append(np.abs(IL_2_chk[i] - IL_2_ch0[i]))
             median = np.percentile(IL_2_chk_M_ch0, 50) # 50th percentile, median
-            print('median ' + str(median))
+            #print('median ' + str(median))
             width = np.abs(np.percentile(IL_2_chk_M_ch0, 10) - np.percentile(IL_2_chk_M_ch0, 90))
-            print('width ' + str(width))
+            #print('width ' + str(width))
             h = rt.TH1D(name, title, 80, median - width, median + width)
-            h.SetXTitle('IL_2 [ns]')
+            #f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+            #h.Fit("multi_gaus", "LR", "")
+            #h.SetXTitle('IL_2 [ns]')
             h.SetYTitle('Events')
             chain.Project(name, 'IL_2['+str(k)+']')
             h.Draw()
@@ -546,4 +548,3 @@ if __name__ == '__main__':
             h.DrawCopy('E')
             canvas['IL_50'][k].Update()
             canvas['IL_50'][k].SaveAs(out_dir + '/IL_50_ch'+str(k)+'.png')
-
