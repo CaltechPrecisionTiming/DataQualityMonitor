@@ -304,13 +304,15 @@ if __name__ == '__main__':
             IL_2_ch0 = np.concatenate(list(tree2array( chain, 'IL_2['+str(0)+']')))
             IL_2_chk_M_ch0 = []
             for i in range(len(IL_2_chk)):
-                IL_2_chk_M_ch0.append(np.abs(IL_2_chk[i] - IL_2_ch0[i]))
+                IL_2_chk_M_ch0.append(IL_2_chk[i] - IL_2_ch0[i])
             median = np.percentile(IL_2_chk_M_ch0, 50) # 50th percentile, median
             #print('median ' + str(median))
             width = np.abs(np.percentile(IL_2_chk_M_ch0, 10) - np.percentile(IL_2_chk_M_ch0, 90))
             #width = np.abs(np.percentile(IL_2_chk, 10) - np.percentile(IL_2_chk, 90))
             #print('width ' + str(width))
-            h = rt.TH1D(name, title, 80, median - width, median + width)
+            h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+            #for i in range(len(IL_2_chk_M_ch0)):
+            #    h.Fill(IL_2_chk_M_ch0[i])
             #f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
             #f1.SetParameter(0, 3000)
             #f1.Setparameter(1, median)
@@ -318,8 +320,9 @@ if __name__ == '__main__':
             #h.Fit("multi_gaus", "LR", "")
             h.SetXTitle('IL_2 [ns]')
             h.SetYTitle('Events')
-            chain.Project(name, 'IL_2['+str(k)+']')
+            chain.Project(name, 'IL_2['+str(k)+'] - IL_2[0]')
             h.Draw()
+            #print h.GetMean(), h.GetRMS()
             canvas['IL_2'][k].Update()
             canvas['IL_2'][k].SaveAs(out_dir + '/IL_2_ch'+str(k)+'.png')
 
