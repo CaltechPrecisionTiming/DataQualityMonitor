@@ -288,7 +288,7 @@ if __name__ == '__main__':
             baseline_RMS_aux = np.concatenate(list(tree2array( chain, 'baseline_RMS['+str(k)+']')))
             h = rt.TH1D(name, title, 80, np.percentile(baseline_RMS_aux, 1), min(900., np.percentile(baseline_RMS_aux, 99)))
             h.SetXTitle('Baseline RMS [mV]')
-            h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
+            h.SetYTitle('Events')
             chain.Project(name, 'baseline_RMS['+str(k)+']')
             h.DrawCopy('E')
             canvas['baseline_RMS'][k].Update()
@@ -299,7 +299,7 @@ if __name__ == '__main__':
             print '\tIL_2[1] - IL_2[0]'
             canvas['IL_2'][k] = rt.TCanvas('c_IL_2_'+str(k), 'c_IL_2_'+str(k), 800, 600)
             name   = 'h_IL_2_' + str(k)
-            title  = 'IL_2 ch' + str(k)
+            title  = 'IL_2[1] - IL_2[0]'
             IL_2_chk = np.concatenate(list(tree2array( chain, 'IL_2['+str(k)+']')))
             IL_2_ch0 = np.concatenate(list(tree2array( chain, 'IL_2['+str(0)+']')))
             IL_2_chk_M_ch0 = []
@@ -307,251 +307,336 @@ if __name__ == '__main__':
                 IL_2_chk_M_ch0.append(IL_2_chk[i] - IL_2_ch0[i])
             median = np.percentile(IL_2_chk_M_ch0, 50) # 50th percentile, median
             #print('median ' + str(median))
-            width = np.abs(np.percentile(IL_2_chk_M_ch0, 10) - np.percentile(IL_2_chk_M_ch0, 90))
-            #width = np.abs(np.percentile(IL_2_chk, 10) - np.percentile(IL_2_chk, 90))
+            width = np.percentile(IL_2_chk_M_ch0, 90) - np.percentile(IL_2_chk_M_ch0, 10)
             #print('width ' + str(width))
-            h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+            h = rt.TH1D(name, title, 80, median - 2.* width, median + 2.* width)
+            chain.Project(name, 'IL_2['+str(k)+'] - IL_2[0]')
             #for i in range(len(IL_2_chk_M_ch0)):
             #    h.Fill(IL_2_chk_M_ch0[i])
-            #f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
-            #f1.SetParameter(0, 3000)
-            #f1.Setparameter(1, median)
-            #f1.SetParameter(width * 0.25)
-            #h.Fit("multi_gaus", "LR", "")
+            f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+            f1.SetParameter(0, 3000)
+            f1.SetParameter(1, h.GetMean())
+            f1.SetParameter(2, width * 0.25)
+            h.Fit("multi_gaus", "LR", "")
             h.SetXTitle('IL_2 [ns]')
             h.SetYTitle('Events')
-            chain.Project(name, 'IL_2['+str(k)+'] - IL_2[0]')
-            h.Draw()
+            h.DrawCopy('E')
             #print h.GetMean(), h.GetRMS()
             canvas['IL_2'][k].Update()
             canvas['IL_2'][k].SaveAs(out_dir + '/IL_2_ch'+str(k)+'.png')
 
         '''===========================================IL_5======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_5' in configurations.plots:
-            print '\tIL_5'
+        if 'IL_5' in configurations.plots and k > 0:
+            print '\tIL_5[1] - IL_5[0]'
             canvas['IL_5'][k] = rt.TCanvas('c_IL_5_'+str(k), 'c_IL_5_'+str(k), 800, 600)
             name   = 'h_IL_5_' + str(k)
-            title  = 'IL_5 ch' + str(k)
-            IL_5_aux = np.concatenate(list(tree2array( chain, 'IL_5['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_5_aux, 1), min(900., np.percentile(IL_5_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_5 [ns]')
+            title  = 'IL_5[1] - IL_5[0]'
+            IL_5_chk = np.concatenate(list(tree2array( chain, 'IL_5['+str(k)+']')))
+            IL_5_ch0 = np.concatenate(list(tree2array( chain, 'IL_5['+str(0)+']')))
+            IL_5_chk_M_ch0 = []
+            for i in range(len(IL_5_chk)):
+                IL_5_chk_M_ch0.append(IL_5_chk[i] - IL_5_ch0[i])
+            median = np.percentile(IL_5_chk_M_ch0, 50) # 50th percentile, median
+            width = np.abs(np.percentile(IL_5_chk_M_ch0, 10) - np.percentile(IL_5_chk_M_ch0, 90))
+            h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+            chain.Project(name, 'IL_5['+str(k)+'] - IL_5[0]')
+            #for i in range(len(IL_5_chk_M_ch0)):
+            #    h.Fill(IL_5_chk_M_ch0[i])
+            f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+            f1.SetParameter(0, 3000)
+            f1.SetParameter(1, h.GetMean())
+            f1.SetParameter(2, width * 0.25)
+            h.Fit("multi_gaus", "LR", "")
+            h.SetXTitle('IL_2 [ns]')
             h.SetYTitle('Events')
-            chain.Project(name, 'IL_5['+str(k)+']')
             h.DrawCopy('E')
+            #print h.GetMean(), h.GetRMS()
             canvas['IL_5'][k].Update()
             canvas['IL_5'][k].SaveAs(out_dir + '/IL_5_ch'+str(k)+'.png')
 
         '''===========================================IL_8======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_8' in configurations.plots:
-            print '\tIL_8'
-            canvas['IL_8'][k] = rt.TCanvas('c_IL_8_'+str(k), 'c_IL_8_'+str(k), 800, 600)
-            name   = 'h_IL_8_' + str(k)
-            title  = 'IL_8 ch' + str(k)
-            IL_8_aux = np.concatenate(list(tree2array( chain, 'IL_8['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_8_aux, 1), min(900., np.percentile(IL_8_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_8 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_8['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_8'][k].Update()
-            canvas['IL_8'][k].SaveAs(out_dir + '/IL_8_ch'+str(k)+'.png')
+        if 'IL_8' in configurations.plots and k > 0:
+                print '\tIL_8[1] - IL_8[0]'
+                canvas['IL_8'][k] = rt.TCanvas('c_IL_8_'+str(k), 'c_IL_8_'+str(k), 800, 600)
+                name   = 'h_IL_8_' + str(k)
+                title  = 'IL_8[1] - IL_8[0]'
+                IL_8_chk = np.concatenate(list(tree2array( chain, 'IL_8['+str(k)+']')))
+                IL_8_ch0 = np.concatenate(list(tree2array( chain, 'IL_8['+str(0)+']')))
+                IL_8_chk_M_ch0 = []
+                for i in range(len(IL_8_chk)):
+                    IL_8_chk_M_ch0.append(IL_8_chk[i] - IL_8_ch0[i])
+                median = np.percentile(IL_8_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_8_chk_M_ch0, 10) - np.percentile(IL_8_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2. * width, median + 2. * width)
+                chain.Project(name, 'IL_8['+str(k)+'] - IL_8[0]')
+                #for i in range(len(IL_8_chk_M_ch0)):
+                #    h.Fill(IL_8_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_8'][k].Update()
+                canvas['IL_8'][k].SaveAs(out_dir + '/IL_8_ch'+str(k)+'.png')
 
         '''===========================================IL_10======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_10' in configurations.plots:
-            print '\tIL_10'
-            canvas['IL_10'][k] = rt.TCanvas('c_IL_10_'+str(k), 'c_IL_10_'+str(k), 800, 600)
-            name   = 'h_IL_10_' + str(k)
-            title  = 'IL_10 ch' + str(k)
-            IL_10_aux = np.concatenate(list(tree2array( chain, 'IL_10['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_10_aux, 1), min(900., np.percentile(IL_10_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_10 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_10['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_10'][k].Update()
-            canvas['IL_10'][k].SaveAs(out_dir + '/IL_10_ch'+str(k)+'.png')
+        if 'IL_10' in configurations.plots and k > 0:
+                print '\tIL_10[1] - IL_10[0]'
+                canvas['IL_10'][k] = rt.TCanvas('c_IL_10_'+str(k), 'c_IL_10_'+str(k), 800, 600)
+                name   = 'h_IL_10_' + str(k)
+                title  = 'IL_10[1] - IL_10[0]'
+                IL_10_chk = np.concatenate(list(tree2array( chain, 'IL_10['+str(k)+']')))
+                IL_10_ch0 = np.concatenate(list(tree2array( chain, 'IL_10['+str(0)+']')))
+                IL_10_chk_M_ch0 = []
+                for i in range(len(IL_10_chk)):
+                    IL_10_chk_M_ch0.append(IL_10_chk[i] - IL_10_ch0[i])
+                median = np.percentile(IL_10_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_10_chk_M_ch0, 10) - np.percentile(IL_10_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2. * width, median + 2. * width)
+                chain.Project(name, 'IL_10['+str(k)+'] - IL_10[0]')
+                #for i in range(len(IL_10_chk_M_ch0)):
+                #    h.Fill(IL_10_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_10'][k].Update()
+                canvas['IL_10'][k].SaveAs(out_dir + '/IL_10_ch'+str(k)+'.png')
 
         '''===========================================IL_15======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_15' in configurations.plots:
-            print '\tIL_15'
-            canvas['IL_15'][k] = rt.TCanvas('c_IL_15_'+str(k), 'c_IL_15_'+str(k), 800, 600)
-            name   = 'h_IL_15_' + str(k)
-            title  = 'IL_15 ch' + str(k)
-            IL_15_aux = np.concatenate(list(tree2array( chain, 'IL_15['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_15_aux, 1), min(900., np.percentile(IL_15_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_15 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_15['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_15'][k].Update()
-            canvas['IL_15'][k].SaveAs(out_dir + '/IL_15_ch'+str(k)+'.png')
+        if 'IL_15' in configurations.plots and k > 0:
+                print '\tIL_15[1] - IL_15[0]'
+                canvas['IL_15'][k] = rt.TCanvas('c_IL_15_'+str(k), 'c_IL_15_'+str(k), 800, 600)
+                name   = 'h_IL_15_' + str(k)
+                title  = 'IL_15[1] - IL_15[0]'
+                IL_15_chk = np.concatenate(list(tree2array( chain, 'IL_15['+str(k)+']')))
+                IL_15_ch0 = np.concatenate(list(tree2array( chain, 'IL_15['+str(0)+']')))
+                IL_15_chk_M_ch0 = []
+                for i in range(len(IL_15_chk)):
+                    IL_15_chk_M_ch0.append(IL_15_chk[i] - IL_15_ch0[i])
+                median = np.percentile(IL_15_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_15_chk_M_ch0, 10) - np.percentile(IL_15_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.* width, median + 2.* width)
+                chain.Project(name, 'IL_15['+str(k)+'] - IL_15[0]')
+                #for i in range(len(IL_15_chk_M_ch0)):
+                #    h.Fill(IL_15_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_15'][k].Update()
+                canvas['IL_15'][k].SaveAs(out_dir + '/IL_15_ch'+str(k)+'.png')
         '''===========================================IL_20======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_20' in configurations.plots:
-            print '\tIL_20'
-            canvas['IL_20'][k] = rt.TCanvas('c_IL_20_'+str(k), 'c_IL_20_'+str(k), 800, 600)
-            name   = 'h_IL_20_' + str(k)
-            title  = 'IL_20 ch' + str(k)
-            IL_20_aux = np.concatenate(list(tree2array( chain, 'IL_20['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_20_aux, 1), min(900., np.percentile(IL_20_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_20 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_20['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_20'][k].Update()
-            canvas['IL_20'][k].SaveAs(out_dir + '/IL_20_ch'+str(k)+'.png')
+        if 'IL_20' in configurations.plots and k > 0:
+                print '\tIL_20[1] - IL_20[0]'
+                canvas['IL_20'][k] = rt.TCanvas('c_IL_20_'+str(k), 'c_IL_20_'+str(k), 800, 600)
+                name   = 'h_IL_20_' + str(k)
+                title  = 'IL_20[1] - IL_20[0]'
+                IL_20_chk = np.concatenate(list(tree2array( chain, 'IL_20['+str(k)+']')))
+                IL_20_ch0 = np.concatenate(list(tree2array( chain, 'IL_20['+str(0)+']')))
+                IL_20_chk_M_ch0 = []
+                for i in range(len(IL_20_chk)):
+                    IL_20_chk_M_ch0.append(IL_20_chk[i] - IL_20_ch0[i])
+                median = np.percentile(IL_20_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_20_chk_M_ch0, 10) - np.percentile(IL_20_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_20['+str(k)+'] - IL_20[0]')
+                #for i in range(len(IL_20_chk_M_ch0)):
+                #    h.Fill(IL_20_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_20'][k].Update()
+                canvas['IL_20'][k].SaveAs(out_dir + '/IL_20_ch'+str(k)+'.png')
 
         '''===========================================IL_25======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_25' in configurations.plots:
-            print '\tIL_25'
-            canvas['IL_25'][k] = rt.TCanvas('c_IL_25_'+str(k), 'c_IL_25_'+str(k), 800, 600)
-            name   = 'h_IL_25_' + str(k)
-            title  = 'IL_25 ch' + str(k)
-            IL_25_aux = np.concatenate(list(tree2array( chain, 'IL_25['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_25_aux, 1), min(900., np.percentile(IL_25_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_25 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_25['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_25'][k].Update()
-            canvas['IL_25'][k].SaveAs(out_dir + '/IL_25_ch'+str(k)+'.png')
+        if 'IL_25' in configurations.plots and k > 0:
+                print '\tIL_25[1] - IL_25[0]'
+                canvas['IL_25'][k] = rt.TCanvas('c_IL_25_'+str(k), 'c_IL_25_'+str(k), 800, 600)
+                name   = 'h_IL_25_' + str(k)
+                title  = 'IL_25[1] - IL_25[0]'
+                IL_25_chk = np.concatenate(list(tree2array( chain, 'IL_25['+str(k)+']')))
+                IL_25_ch0 = np.concatenate(list(tree2array( chain, 'IL_25['+str(0)+']')))
+                IL_25_chk_M_ch0 = []
+                for i in range(len(IL_25_chk)):
+                    IL_25_chk_M_ch0.append(IL_25_chk[i] - IL_25_ch0[i])
+                median = np.percentile(IL_25_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_25_chk_M_ch0, 10) - np.percentile(IL_25_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_25['+str(k)+'] - IL_25[0]')
+                #for i in range(len(IL_25_chk_M_ch0)):
+                #    h.Fill(IL_25_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_25'][k].Update()
+                canvas['IL_25'][k].SaveAs(out_dir + '/IL_25_ch'+str(k)+'.png')
 
         '''===========================================IL_30======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_30' in configurations.plots:
-            print '\tIL_30'
-            canvas['IL_30'][k] = rt.TCanvas('c_IL_30_'+str(k), 'c_IL_30_'+str(k), 800, 600)
-            name   = 'h_IL_30_' + str(k)
-            title  = 'IL_30 ch' + str(k)
-            IL_30_aux = np.concatenate(list(tree2array( chain, 'IL_30['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_30_aux, 1), min(900., np.percentile(IL_30_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_30 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_30['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_30'][k].Update()
-            canvas['IL_30'][k].SaveAs(out_dir + '/IL_30_ch'+str(k)+'.png')
+        if 'IL_30' in configurations.plots and k > 0:
+                print '\tIL_30[1] - IL_30[0]'
+                canvas['IL_30'][k] = rt.TCanvas('c_IL_30_'+str(k), 'c_IL_30_'+str(k), 800, 600)
+                name   = 'h_IL_30_' + str(k)
+                title  = 'IL_30[1] - IL_30[0]'
+                IL_30_chk = np.concatenate(list(tree2array( chain, 'IL_30['+str(k)+']')))
+                IL_30_ch0 = np.concatenate(list(tree2array( chain, 'IL_30['+str(0)+']')))
+                IL_30_chk_M_ch0 = []
+                for i in range(len(IL_30_chk)):
+                    IL_30_chk_M_ch0.append(IL_30_chk[i] - IL_30_ch0[i])
+                median = np.percentile(IL_30_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_30_chk_M_ch0, 10) - np.percentile(IL_30_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_30['+str(k)+'] - IL_30[0]')
+                #for i in range(len(IL_30_chk_M_ch0)):
+                #    h.Fill(IL_30_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_30'][k].Update()
+                canvas['IL_30'][k].SaveAs(out_dir + '/IL_30_ch'+str(k)+'.png')
 
         '''===========================================IL_35======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_35' in configurations.plots:
-            print '\tIL_35'
-            canvas['IL_35'][k] = rt.TCanvas('c_IL_35_'+str(k), 'c_IL_35_'+str(k), 800, 600)
-            name   = 'h_IL_35_' + str(k)
-            title  = 'IL_35 ch' + str(k)
-            IL_35_aux = np.concatenate(list(tree2array( chain, 'IL_35['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_35_aux, 1), min(900., np.percentile(IL_35_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_35 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_35['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_35'][k].Update()
-            canvas['IL_35'][k].SaveAs(out_dir + '/IL_35_ch'+str(k)+'.png')
+        if 'IL_35' in configurations.plots and k > 0:
+                print '\tIL_35[1] - IL_35[0]'
+                canvas['IL_35'][k] = rt.TCanvas('c_IL_35_'+str(k), 'c_IL_35_'+str(k), 800, 600)
+                name   = 'h_IL_35_' + str(k)
+                title  = 'IL_35[1] - IL_35[0]'
+                IL_35_chk = np.concatenate(list(tree2array( chain, 'IL_35['+str(k)+']')))
+                IL_35_ch0 = np.concatenate(list(tree2array( chain, 'IL_35['+str(0)+']')))
+                IL_35_chk_M_ch0 = []
+                for i in range(len(IL_35_chk)):
+                    IL_35_chk_M_ch0.append(IL_35_chk[i] - IL_35_ch0[i])
+                median = np.percentile(IL_35_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_35_chk_M_ch0, 10) - np.percentile(IL_35_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_35['+str(k)+'] - IL_35[0]')
+                #for i in range(len(IL_35_chk_M_ch0)):
+                #    h.Fill(IL_35_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_35'][k].Update()
+                canvas['IL_35'][k].SaveAs(out_dir + '/IL_35_ch'+str(k)+'.png')
 
         '''===========================================IL_40======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_40' in configurations.plots:
-            print '\tIL_40'
-            canvas['IL_40'][k] = rt.TCanvas('c_IL_40_'+str(k), 'c_IL_40_'+str(k), 800, 600)
-            name   = 'h_IL_40_' + str(k)
-            title  = 'IL_40 ch' + str(k)
-            IL_40_aux = np.concatenate(list(tree2array( chain, 'IL_40['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_40_aux, 1), min(900., np.percentile(IL_40_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_40 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_40['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_40'][k].Update()
-            canvas['IL_40'][k].SaveAs(out_dir + '/IL_40_ch'+str(k)+'.png')
-
+        if 'IL_40' in configurations.plots and k > 0:
+                print '\tIL_40[1] - IL_40[0]'
+                canvas['IL_40'][k] = rt.TCanvas('c_IL_40_'+str(k), 'c_IL_40_'+str(k), 800, 600)
+                name   = 'h_IL_40_' + str(k)
+                title  = 'IL_40[1] - IL_40[0]'
+                IL_40_chk = np.concatenate(list(tree2array( chain, 'IL_40['+str(k)+']')))
+                IL_40_ch0 = np.concatenate(list(tree2array( chain, 'IL_40['+str(0)+']')))
+                IL_40_chk_M_ch0 = []
+                for i in range(len(IL_40_chk)):
+                    IL_40_chk_M_ch0.append(IL_40_chk[i] - IL_40_ch0[i])
+                median = np.percentile(IL_40_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_40_chk_M_ch0, 10) - np.percentile(IL_40_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_40['+str(k)+'] - IL_40[0]')
+                #for i in range(len(IL_40_chk_M_ch0)):
+                #    h.Fill(IL_40_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_40'][k].Update()
+                canvas['IL_40'][k].SaveAs(out_dir + '/IL_40_ch'+str(k)+'.png')
         '''===========================================IL_45======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_45' in configurations.plots:
-            print '\tIL_45'
-            canvas['IL_45'][k] = rt.TCanvas('c_IL_45_'+str(k), 'c_IL_45_'+str(k), 800, 600)
-            name   = 'h_IL_45_' + str(k)
-            title  = 'IL_45 ch' + str(k)
-            IL_45_aux = np.concatenate(list(tree2array( chain, 'IL_45['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_45_aux, 1), min(900., np.percentile(IL_45_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_45 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_45['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_45'][k].Update()
-            canvas['IL_45'][k].SaveAs(out_dir + '/IL_45_ch'+str(k)+'.png')
-
+        if 'IL_45' in configurations.plots and k > 0:
+                print '\tIL_45[1] - IL_45[0]'
+                canvas['IL_45'][k] = rt.TCanvas('c_IL_45_'+str(k), 'c_IL_45_'+str(k), 800, 600)
+                name   = 'h_IL_45_' + str(k)
+                title  = 'IL_45[1] - IL_45[0]'
+                IL_45_chk = np.concatenate(list(tree2array( chain, 'IL_45['+str(k)+']')))
+                IL_45_ch0 = np.concatenate(list(tree2array( chain, 'IL_45['+str(0)+']')))
+                IL_45_chk_M_ch0 = []
+                for i in range(len(IL_45_chk)):
+                    IL_45_chk_M_ch0.append(IL_45_chk[i] - IL_45_ch0[i])
+                median = np.percentile(IL_45_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_45_chk_M_ch0, 10) - np.percentile(IL_45_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_45['+str(k)+'] - IL_45[0]')
+                #for i in range(len(IL_45_chk_M_ch0)):
+                #    h.Fill(IL_45_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_45'][k].Update()
+                canvas['IL_45'][k].SaveAs(out_dir + '/IL_45_ch'+str(k)+'.png')
         '''===========================================IL_50======================================'''
-        # do not need to use Fit function
-        # to adjust mean or std value, adjust the numbers in GetXAxis().SetRange()
-        if 'IL_50' in configurations.plots:
-            print '\tIL_50'
-            canvas['IL_50'][k] = rt.TCanvas('c_IL_50_'+str(k), 'c_IL_50_'+str(k), 800, 600)
-            name   = 'h_IL_50_' + str(k)
-            title  = 'IL_50 ch' + str(k)
-            IL_50_aux = np.concatenate(list(tree2array( chain, 'IL_50['+str(k)+']')))
-            h = rt.TH1D(name, title, 80, np.percentile(IL_50_aux, 1), min(900., np.percentile(IL_50_aux, 99)))
-            if k == 0: # set range for channel 0
-                h.GetXaxis().SetRange(66, 85)
-            else: # set range for channel 1
-                h.GetXaxis().SetRange(63, 85)
-            h.SetXTitle('IL_50 [ns]')
-            h.SetYTitle('Events')
-            chain.Project(name, 'IL_50['+str(k)+']')
-            h.DrawCopy('E')
-            canvas['IL_50'][k].Update()
-            canvas['IL_50'][k].SaveAs(out_dir + '/IL_50_ch'+str(k)+'.png')
+        if 'IL_50' in configurations.plots and k > 0:
+                print '\tIL_50[1] - IL_50[0]'
+                canvas['IL_50'][k] = rt.TCanvas('c_IL_50_'+str(k), 'c_IL_50_'+str(k), 800, 600)
+                name   = 'h_IL_50_' + str(k)
+                title  = 'IL_50[1] - IL_50[0]'
+                IL_50_chk = np.concatenate(list(tree2array( chain, 'IL_50['+str(k)+']')))
+                IL_50_ch0 = np.concatenate(list(tree2array( chain, 'IL_50['+str(0)+']')))
+                IL_50_chk_M_ch0 = []
+                for i in range(len(IL_50_chk)):
+                    IL_50_chk_M_ch0.append(IL_50_chk[i] - IL_50_ch0[i])
+                median = np.percentile(IL_50_chk_M_ch0, 50) # 50th percentile, median
+                width = np.abs(np.percentile(IL_50_chk_M_ch0, 10) - np.percentile(IL_50_chk_M_ch0, 90))
+                h = rt.TH1D(name, title, 80, median - 2.*width, median + 2.*width)
+                chain.Project(name, 'IL_50['+str(k)+'] - IL_50[0]')
+                #for i in range(len(IL_50_chk_M_ch0)):
+                #    h.Fill(IL_50_chk_M_ch0[i])
+                f1 = rt.TF1("multi_gaus","gaus(0)", median - 0.5 * width, median + 0.5 * width)
+                f1.SetParameter(0, 3000)
+                f1.SetParameter(1, h.GetMean())
+                f1.SetParameter(2, width * 0.25)
+                h.Fit("multi_gaus", "LR", "")
+                h.SetXTitle('IL_2 [ns]')
+                h.SetYTitle('Events')
+                h.DrawCopy('E')
+                #print h.GetMean(), h.GetRMS()
+                canvas['IL_50'][k].Update()
+                canvas['IL_50'][k].SaveAs(out_dir + '/IL_50_ch'+str(k)+'.png')

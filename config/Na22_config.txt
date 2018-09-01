@@ -1,4 +1,4 @@
--->Print: Amp Int Risetime Baseline_RMS IL_2 
+-->Print: Amp Int Risetime Baseline_RMS IL_2 IL_5 IL_8 IL_10 IL_15 IL_20 IL_25 IL_30 IL_35 IL_40 IL_45 IL_50
 -->XYcenter-width: 20 20 30
 ch_num idx_time idx_dut idx_ref var_ref int_min int_max
 0 0 0 -1 gaus_mean 30 450
