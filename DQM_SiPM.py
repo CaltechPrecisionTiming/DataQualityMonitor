@@ -10,8 +10,8 @@ from lib.cebefo_style import cebefo_style
 
 def parsing():
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", type=str, help="input root file", nargs='+')
-    parser.add_argument("-C", "--config", type=str, default='config/VME_FNALTestbeam_180610.txt', help="Config file")
+    parser.add_argument("-i", "--input_file", type=str, help="input root file", nargs='+')
+    parser.add_argument("-C", "--config", type=str, default='config/FNAL_TB_1811/VME_SiPM.txt', help="Config file")
     parser.add_argument("-S", "--save_loc", type=str, default='./out_plots/', help="Saving location")
 
     parser.add_argument("-B", "--batch", default=True, action='store_false', help="Root batch mode")
@@ -124,6 +124,7 @@ if __name__ == '__main__':
         if os.path.exists(out_dir):
             shutil.rmtree(out_dir)
         os.mkdir(out_dir)
+        shutil.copy('lib/index.php', out_dir+'/index.php')
     else:
         print 'Save location not existing:', save_loc
         raise Exception(' ')
