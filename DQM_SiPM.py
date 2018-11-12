@@ -384,8 +384,12 @@ if __name__ == '__main__':
                 print 'Empty delta'
                 continue
 
-            median = np.percentile(delta_t, 50)[0]
-            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))[0]
+            if os.uname()[1].startswith('lxplus'):
+                median = np.percentile(delta_t, 50)[0]
+                width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))[0]
+            else:
+                median = np.percentile(delta_t, 50)
+                width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
             name = 'h_delta_t_raw_'+str(k)
             title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
@@ -445,7 +449,7 @@ if __name__ == '__main__':
 
                     aux_t = delta_t[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
                     pos = pos[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
-                    coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t)
+                    coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t, rcond=None)
                     for j,a in enumerate(coeff):
                         f.SetParameter(j, a)
                     conf[c]['coeff'] = np.flipud(coeff)
@@ -510,7 +514,7 @@ if __name__ == '__main__':
                 f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', np.min(arr['amp']), np.max(arr['amp']))
                 f.DrawCopy('SAMEL')
 
-                coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t)
+                coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t, rcond=None)
                 for j,a in enumerate(coeff):
                     f.SetParameter(j, a)
                 conf['amp']['coeff'] = np.flipud(coeff)
@@ -537,7 +541,7 @@ if __name__ == '__main__':
                     return np.column_stack(out)
 
                 inputs = create_regression_input(arr['x'], arr['y'], arr['amp'])
-                coeff, r, rank, s = np.linalg.lstsq(inputs, delta_t)
+                coeff, r, rank, s = np.linalg.lstsq(inputs, delta_t, rcond=None)
 
                 dt_corr = delta_t - np.dot(inputs, coeff)
 
