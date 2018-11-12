@@ -53,14 +53,15 @@ class Config:
                         self.channel[n][k] = val
 
 
-def define_range_around_peak(h, perc = [0.4, 0.4], m = 0):
+def define_range_around_peak(h, perc = [0.4, 0.4], Range=[0.0, 99999.0]):
     SS = rt.TSpectrum()
     n_pks = SS.Search(h, 1, "", 0.2)
     i_max = 0
     max = -1
     y = SS.GetPositionY()
+    x = SS.GetPositionX()
     for i in range(n_pks):
-        if y[i] > max and SS.GetPositionX()[i] > m:
+        if y[i] > max and x > Range[0] and x < Range[1]:
             max = y[i]
             i_max = i
     n_pk = h.FindBin(SS.GetPositionX()[i_max])
@@ -194,7 +195,13 @@ if __name__ == '__main__':
             h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
             chain.Project(name, 'amp['+str(k)+']')
 
-            x_low, x_up = define_range_around_peak(h, [0.35, 0.3], 20)
+            Range = [0.0, 9999999.0]
+            if hasattr(conf, 'amp_min'):
+                Range[0] = conf['amp_min']
+            if hasattr(conf, 'amp_max'):
+                Range[1] = conf['amp_max']
+
+            x_low, x_up = define_range_around_peak(h, [0.35, 0.3], Range)
 
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
             h.DrawCopy('E')
@@ -220,7 +227,7 @@ if __name__ == '__main__':
             h.SetYTitle('Events / {:.1f} pC'.format(h.GetBinWidth(1)))
             chain.Project(name, '-integral['+str(k)+']', '-integral['+str(k)+'] != 0')
 
-            x_low, x_up = define_range_around_peak(h, [0.25, 0.3], 1)
+            x_low, x_up = define_range_around_peak(h, [0.25, 0.3])
 
             if conf['idx_ref'] >= 0:
                 res = h.Fit('landau','LQSR', '', x_low, x_up)
