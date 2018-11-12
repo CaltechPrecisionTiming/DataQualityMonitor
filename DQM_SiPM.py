@@ -37,6 +37,8 @@ class Config:
             l = l[0:-1].split(' ')
             if '-->Pri' in l[0]:
                 self.plots = l[1:]
+                print "Plots expected:"
+                print self.plots
             elif '-->XYcenter' in l[0]:
                 self.xy_center = [float(l[1]), float(l[2]), float(l[3])]
             elif len(self.labels) == 0:
@@ -195,7 +197,6 @@ if __name__ == '__main__':
 
         '''=========================== Amplitude ==========================='''
         if 'Amp' in configurations.plots:
-            print '\tAmplitude'
             name = 'h_amp_'+str(k)
             title = 'Amplitude channel '+str(k)
 
@@ -299,8 +300,6 @@ if __name__ == '__main__':
 
         '''=========================== Waveform color chart ==========================='''
         if 'WaveColor' in configurations.plots:
-            print '\tWaveColor'
-
             name = 'h_wave_'+str(k)
             title = 'Waveform color chart channel '+str(k)
 
@@ -308,7 +307,9 @@ if __name__ == '__main__':
             h.SetXTitle('Time [ns]')
             h.SetYTitle('Voltage [mV]')
 
-            chain.Project(name, 'channel[{}]:time[{}]'.format(k,conf['idx_time']))
+            N_max = chain.GetEntries()
+            N_max = max(500, int(N_max*0.1))
+            chain.Project(name, 'channel[{}]:time[{}]'.format(k,conf['idx_time'], 'Entry$ < {}'.format(N_max)))
 
             h.SetStats(0)
             canvas['wave'][k] = rt.TCanvas('c_wave_'+str(k), 'c_wave_'+str(k), 800, 600)
@@ -383,8 +384,8 @@ if __name__ == '__main__':
                 print 'Empty delta'
                 continue
 
-            median = np.percentile(delta_t, 50)
-            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
+            median = np.percentile(delta_t, 50)[0]
+            width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))[0]
 
             name = 'h_delta_t_raw_'+str(k)
             title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
@@ -393,7 +394,6 @@ if __name__ == '__main__':
                                 axis_title = [var_dT + ' [ns]', 'Events'])
 
             if 'TimeResRaw' in configurations.plots:
-                print '\tTimeResRaw'
                 canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
                 h.Fit('gaus', 'LQR','', median-width, median+width)
                 h = h.DrawCopy('LE')
