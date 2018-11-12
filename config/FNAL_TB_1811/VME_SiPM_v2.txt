@@ -1,0 +1,12 @@
+-->Print: Amp PosRaw PosWeight
+#-->Print: Amp Int Risetime PosRaw PosWeight TimeResRaw TimeCorrected
+-->XYcenter-width: 20 20 30
+ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
+0 0 0 -1 gaus_mean 10 240
+1 0 0 -1 t0_10 300 600
+2 0 0 -1 t0_10 400 1200
+3 0 0 -1 t0_10 40 600
+4 0 0 -1 t0_10 300 600
+5 0 0 -1 t0_10 100 500
+6 0 0 -1 t0_10 100 500
+7 0 0 -1 t0_10 100 500
