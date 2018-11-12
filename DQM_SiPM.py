@@ -10,7 +10,7 @@ from lib.cebefo_style import cebefo_style
 
 def parsing():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input_file", type=str, help="input root file", nargs='+')
+    parser.add_argument("-i", "--input_file", type=str, help="input root file, if -N is given XX is replaced with runNumber", nargs='+')
     parser.add_argument("-C", "--config", type=str, default='config/FNAL_TB_1811/VME_SiPM.txt', help="Config file")
     parser.add_argument("-S", "--save_loc", type=str, default='./out_plots/', help="Saving location")
 
@@ -54,18 +54,29 @@ class Config:
 
 
 def define_range_around_peak(h, perc = [0.4, 0.4], Range=[0.0, 99999.0]):
+    h_aux = h.Clone('h_aux')
+    for i in range(1, h_aux.GetNbinsX()+1):
+        if h_aux.GetBinCenter(i) < Range[0] or h_aux.GetBinCenter(i) > Range[1]:
+            h_aux.SetBinContent(i, 0.)
+
     SS = rt.TSpectrum()
-    n_pks = SS.Search(h, 1, "", 0.2)
+    n_pks = SS.Search(h_aux, 2, "", 0.2)
+
     i_max = 0
     max = -1
     y = SS.GetPositionY()
     x = SS.GetPositionX()
+    found = False
     for i in range(n_pks):
         if y[i] > max and x > Range[0] and x < Range[1]:
             max = y[i]
             i_max = i
-    n_pk = h.FindBin(SS.GetPositionX()[i_max])
+            found = True
 
+    if found:
+        n_pk = h.FindBin(SS.GetPositionX()[i_max])
+    else:
+        n_pk = h_aux.GetMaximumBin()
 
     thr = perc[0] * h.GetBinContent(n_pk)
     n_low = n_pk
@@ -78,7 +89,7 @@ def define_range_around_peak(h, perc = [0.4, 0.4], Range=[0.0, 99999.0]):
     while h.GetBinContent(n_up) > thr and n_up < h.GetNbinsX():
         n_up += 1
     x_up = h.GetBinLowEdge(n_up) + h.GetBinWidth(n_up)
-    return x_low, x_up
+    return x_low, x_up, n_pk
 
 if __name__ == '__main__':
     cebefo_style()
@@ -190,23 +201,34 @@ if __name__ == '__main__':
 
             amp_aux = np.concatenate(list(tree2array( chain, 'amp['+str(k)+']')))
 
-            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(900., np.percentile(amp_aux, 99)))
+            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(990., np.percentile(amp_aux, 99)))
             h.SetXTitle('Peak amplitude [mV]')
             h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
             chain.Project(name, 'amp['+str(k)+']')
 
             Range = [0.0, 9999999.0]
-            if hasattr(conf, 'amp_min'):
+            if 'amp_min' in conf.keys():
+                conf['amp_min'] = float(conf['amp_min'])
                 Range[0] = conf['amp_min']
-            if hasattr(conf, 'amp_max'):
+            if 'amp_max' in conf.keys():
+                conf['amp_max'] = float(conf['amp_max'])
                 Range[1] = conf['amp_max']
 
-            x_low, x_up = define_range_around_peak(h, [0.35, 0.3], Range)
+            x_low, x_up, n_pk = define_range_around_peak(h, [0.35, 0.3], Range)
 
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
             h.DrawCopy('E')
             line.DrawLine(x_low, 0, x_low, h.GetMaximum())
             line.DrawLine(x_up, 0, x_up, h.GetMaximum())
+
+            gr = rt.TGraph(1)
+            gr.SetPoint(0, h.GetBinCenter(n_pk), h.GetBinContent(n_pk))
+            gr.SetMarkerStyle(23)
+            gr.SetMarkerColor(2)
+            gr.Draw("P")
+
+            if h.GetMaximum() > 5*h.GetBinContent(n_pk):
+                canvas['amp'][k].SetLogy()
 
             canvas['amp'][k].Update()
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
