@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
             amp_aux = np.concatenate(list(tree2array( chain, 'amp['+str(k)+']')))
 
-            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(990., np.percentile(amp_aux, 99)))
+            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(990., np.percentile(amp_aux, 99.9)))
             h.SetXTitle('Peak amplitude [mV]')
             h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
             chain.Project(name, 'amp['+str(k)+']')
@@ -449,6 +449,9 @@ if __name__ == '__main__':
 
                     aux_t = delta_t[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
                     pos = pos[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
+                    in_arr = np.column_stack((0*pos+1, pos, pos**2))
+                    if in_arr.shape[0] < 5 or aux_t.shape[0] < 5:
+                        continue
                     coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t, rcond=None)
                     for j,a in enumerate(coeff):
                         f.SetParameter(j, a)
