@@ -392,6 +392,10 @@ if __name__ == '__main__':
                 width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
             name = 'h_delta_t_raw_'+str(k)
+            if width == 0:
+                width = np.std(delta_t)
+            if width == 0:
+                width = 0.1
             title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
             h = create_TH1D(delta_t, name, title,
                                 binning = [ None, median-2*width, median+2*width],
@@ -426,6 +430,7 @@ if __name__ == '__main__':
                 delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
 
                 add_sel = ''
+                continue_happened = False
                 for i, c in enumerate(['x', 'y']):
                     conf[c] = {}
                     pos = np.concatenate(list(tree2array(chain, c+'_dut[0]', selection)))
@@ -451,6 +456,7 @@ if __name__ == '__main__':
                     pos = pos[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
                     in_arr = np.column_stack((0*pos+1, pos, pos**2))
                     if in_arr.shape[0] < 5 or aux_t.shape[0] < 5:
+                        continue_happened = True
                         continue
                     coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t, rcond=None)
                     for j,a in enumerate(coeff):
@@ -460,6 +466,9 @@ if __name__ == '__main__':
                     f.DrawCopy('SAMEL')
 
                     prof.DrawCopy('SAMEE')
+
+                if continue_happened:
+                    continue
 
                 canvas['space_corr'][k].Update()
                 canvas['space_corr'][k].SaveAs(out_dir + '/TimeResolution_Position_dependece_ch'+str(k)+'.png')
