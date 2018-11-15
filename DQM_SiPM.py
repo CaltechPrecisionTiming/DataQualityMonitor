@@ -303,7 +303,7 @@ if __name__ == '__main__':
             name = 'h_wave_'+str(k)
             title = 'Waveform color chart channel '+str(k)
 
-            h = rt.TH2D(name, title, 250, 0, 210, 250, -1100, 600)
+            h = rt.TH2D(name, title, 250, 0, 210, 250, -1100, 500)
             h.SetXTitle('Time [ns]')
             h.SetYTitle('Voltage [mV]')
 
