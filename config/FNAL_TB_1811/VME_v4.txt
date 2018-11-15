@@ -1,0 +1,37 @@
+#-->Print: Amp PosRaw PosWeight TimeResRaw TimeCorrected
+-->Print: Amp PosRaw PosWeight WaveColor TimeResRaw TimeCorrected
+-->XYcenter-width: 20 20 30
+ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
+0 0 0 -1 gaus_mean 20 240
+1 0 0 0 LP2_20 300 800
+2 0 0 0 LP2_20 40 1200
+3 0 0 0 LP2_20 40 600
+4 0 0 0 LP2_20 80 1200
+5 0 0 0 LP2_20 80 800
+6 0 0 -1 LP2_20 800 1200
+7 0 0 -1 LP2_20 800 1200
+9 2 0 -1 gaus_mean 20 200
+10 2 0 -1 None 20 300
+11 2 0 -1 None 20 300
+12 2 0 -1 None 20 200
+13 2 0 -1 None 20 200
+14 2 0 -1 None 20 200
+15 2 0 -1 None 20 1200
+16 2 0 -1 None 20 850
+18 2 0 -1 gaus_mean 20 200
+19 2 0 -1 None 20 300
+20 2 0 18 LP2_20 20 300
+21 2 0 18 LP2_20 20 200
+22 2 0 18 LP2_20 20 200
+23 2 0 -1 None 20 200
+24 2 0 -1 None 20 1200
+25 2 0 18 LP2_20 20 200
+26 2 0 18 LP2_20 20 200
+27 2 0 18 LP2_20 20 200
+28 2 0 18 LP2_20 20 200
+29 2 0 18 LP2_20 20 200
+30 2 0 18 LP2_20 20 200
+31 2 0 18 LP2_20 20 200
+32 2 0 18 LP2_20 20 200
+33 2 0 18 LP2_20 20 200
+34 2 0 -1 None 200 1200

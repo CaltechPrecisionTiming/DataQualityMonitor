@@ -111,6 +111,10 @@ if __name__ == '__main__':
         if len(args.input_file) > 1:
             aux = re.search(r'Run[0-9]+', args.input_file[-1])
             flag += '_'+aux.group(0)[3:]
+    elif len(args.runs_interval)==1:
+        N = args.runs_interval[0]
+        args.input_file = [args.input_file[0].replace('XXX', str(N))]
+        flag = '_'+str(N)
     elif len(args.runs_interval)==2:
         deduced_file_list = []
         for i in range(args.runs_interval[0], args.runs_interval[1]+1):
@@ -202,7 +206,7 @@ if __name__ == '__main__':
 
             amp_aux = np.concatenate(list(tree2array( chain, 'amp['+str(k)+']')))
 
-            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(990., np.percentile(amp_aux, 99.9)))
+            h = rt.TH1D(name, title, 80, np.percentile(amp_aux, 1), min(990., np.percentile(amp_aux, 99.99)))
             h.SetXTitle('Peak amplitude [mV]')
             h.SetYTitle('Events / {:.1f} mV'.format(h.GetBinWidth(1)))
             chain.Project(name, 'amp['+str(k)+']')
@@ -427,6 +431,8 @@ if __name__ == '__main__':
                 canvas['space_corr'][k].Divide(2)
 
                 selection += ' && ntracks == 1 && chi2 < 8'
+                if chain.GetEntries(selection) == 0:
+                    continue
                 delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
 
                 add_sel = ''
