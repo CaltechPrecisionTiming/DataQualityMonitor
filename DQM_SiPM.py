@@ -236,7 +236,7 @@ if __name__ == '__main__':
                 canvas['amp'][k].SetLogy()
 
             canvas['amp'][k].Update()
-            canvas['amp'][k].SaveAs(out_dir + '/Amp_ch'+str(k)+'.png')
+            canvas['amp'][k].SaveAs(out_dir + '/Amp_ch{:02d}.png'.format(k))
 
             selection += ' && (amp[{}]>{} && amp[{}]<{})'.format(k, x_low, k, x_up)
 
@@ -266,7 +266,7 @@ if __name__ == '__main__':
             line.DrawLine(x_up, 0, x_up, h.GetMaximum())
 
             canvas['int'][k].Update()
-            canvas['int'][k].SaveAs(out_dir + '/Int_ch'+str(k)+'.png')
+            canvas['int'][k].SaveAs(out_dir + '/Int_ch{:02d}.png'.format(k))
 
             selection += ' && (-integral[{}]>{} && -integral[{}]<{})'.format(k, x_low, k, x_up)
 
@@ -299,7 +299,7 @@ if __name__ == '__main__':
             ##ploting histogram
             h.DrawCopy('lE')
             canvas['risetime'][k].Update()
-            canvas['risetime'][k].SaveAs(out_dir+'/risetime_ch'+str(k)+'.png')
+            canvas['risetime'][k].SaveAs(out_dir+'/risetime_ch{:02d}.png'.format(k))
 
 
         '''=========================== Waveform color chart ==========================='''
@@ -321,7 +321,7 @@ if __name__ == '__main__':
                 canvas['wave'][k].SetLogz()
             h.DrawCopy('colz')
             canvas['wave'][k].Update()
-            canvas['wave'][k].SaveAs(out_dir + '/Waveform_ch'+str(k)+'.png')
+            canvas['wave'][k].SaveAs(out_dir + '/Waveform_ch{:02d}.png'.format(k))
 
         '''=========================== Track position ==========================='''
         if conf['idx_dut'] >= 0:
@@ -343,7 +343,7 @@ if __name__ == '__main__':
                 h.DrawCopy('colz')
 
                 canvas['pos'][k].Update()
-                canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
+                canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch{:02d}.png'.format(k))
 
                 if 'PosWeight' in configurations.plots:
                     name = 'h_weight_pos_'+str(k)
@@ -362,7 +362,7 @@ if __name__ == '__main__':
                         canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
                         h_w.DrawCopy('colz')
                         canvas['w_pos'][k].Update()
-                        canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
+                        canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
 
         '''=========================== End Selections ==========================='''
         conf['sel'] =  selection
@@ -416,7 +416,7 @@ if __name__ == '__main__':
                 line.DrawLine(median-width, 0, median-width, h.GetMaximum())
                 line.DrawLine(median+width, 0, median+width, h.GetMaximum())
                 canvas['t_res_raw'][k].Update()
-                canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch'+str(k)+'.png')
+                canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch{:02d}.png'.format(k))
 
             selection += '&& ({}>{} && {}<{})'.format(var_dT, median-width, var_dT, median+width)
             delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
@@ -477,7 +477,7 @@ if __name__ == '__main__':
                     continue
 
                 canvas['space_corr'][k].Update()
-                canvas['space_corr'][k].SaveAs(out_dir + '/TimeResolution_Position_dependece_ch'+str(k)+'.png')
+                canvas['space_corr'][k].SaveAs(out_dir + '/TimeResolution_Position_dependece_ch{:02d}.png'.format(k))
 
 
                 line = rt.TLine()
@@ -490,8 +490,8 @@ if __name__ == '__main__':
                     line.DrawLine(conf['x']['ph'], conf['y']['pl'], conf['x']['ph'], conf['y']['ph'])
                     line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['ph'], conf['y']['pl'])
                     line.DrawLine(conf['x']['pl'], conf['y']['ph'], conf['x']['ph'], conf['y']['ph'])
-                canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch'+str(k)+'.png')
-                canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch'+str(k)+'.png')
+                canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
+                canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch{:02d}.png'.format(k))
 
                 selection += add_sel
                 arr['x'] = np.concatenate(list(tree2array(chain, 'x_dut[0]', selection)))
@@ -509,7 +509,7 @@ if __name__ == '__main__':
                 canvas['t_res_space'][k] = rt.TCanvas('c_t_res_space'+str(k), 'c_t_res_raw'+str(k), 700, 500)
                 h.DrawCopy('E1')
                 canvas['t_res_space'][k].Update()
-                canvas['t_res_space'][k].SaveAs(out_dir + '/TimeResolution_space_ch'+str(k)+'.png')
+                canvas['t_res_space'][k].SaveAs(out_dir + '/TimeResolution_space_ch{:02d}.png'.format(k))
 
                 '''=========================== Time resolution vs amplitude ==========================='''
                 conf['amp'] = {}
@@ -551,7 +551,7 @@ if __name__ == '__main__':
                 h.DrawCopy('E1')
 
                 canvas['dt_vs_amp'][k].Update()
-                canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch'+str(k)+'.png')
+                canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch{:02d}.png'.format(k))
 
                 '''=========================== Time resolution w/ one-shot corrections ==========================='''
                 def create_regression_input(x, y, amp):
@@ -575,4 +575,4 @@ if __name__ == '__main__':
                 f.DrawCopy('SAMEL')
 
                 canvas['dt_corr'][k].Update()
-                canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch'+str(k)+'.png')
+                canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch{:02d}.png'.format(k))
