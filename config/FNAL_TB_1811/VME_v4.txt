@@ -19,8 +19,8 @@ ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
 15 2 0 -1 None 20 1200
 16 2 0 -1 None 20 850
 18 2 0 -1 gaus_mean 20 200
-19 2 0 -1 None 20 300
-20 2 0 18 LP2_20 20 300
+19 2 0 -1 None 15 50
+20 2 0 18 LP2_20 15 50
 21 2 0 18 LP2_20 20 200
 22 2 0 18 LP2_20 20 200
 23 2 0 -1 None 20 200
@@ -28,8 +28,8 @@ ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
 25 2 0 18 LP2_20 20 200
 26 2 0 18 LP2_20 20 200
 27 2 0 18 LP2_20 20 200
-28 2 0 18 LP2_20 20 200
-29 2 0 18 LP2_20 20 200
+28 2 0 18 LP2_20 15 50
+29 2 0 18 LP2_20 15 50
 30 2 0 18 LP2_20 20 200
 31 2 0 18 LP2_20 20 200
 32 2 0 18 LP2_20 20 200
