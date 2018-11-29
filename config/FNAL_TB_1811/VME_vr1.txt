@@ -1,0 +1,10 @@
+#-->Print: Amp PosRaw PosWeight TimeResRaw TimeCorrected
+-->Print: Amp Int PosRaw PosWeight WaveColor TimeResRaw TimeCorrected
+-->XYcenter-width: 20 20 30
+ch_num idx_time idx_dut idx_ref var_ref amp_min amp_max
+9 2 0 -1 gaus_mean 20 200
+14 2 0 -1 None 600 1200
+15 2 0 -1 None 600 1200
+18 2 0 -1 gaus_mean 20 200
+24 2 0 -1 None 200 800
+25 2 0 18 LP2_20 200 800

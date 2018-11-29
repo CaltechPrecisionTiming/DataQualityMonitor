@@ -242,8 +242,6 @@ if __name__ == '__main__':
 
         '''=========================== Integral ==========================='''
         if 'Int' in configurations.plots:
-            print '\tIntegral'
-
             canvas['int'][k] = rt.TCanvas('c_int_'+str(k), 'c_int_'+str(k), 800, 600)
 
             name = 'h_int_'+str(k)
@@ -254,7 +252,7 @@ if __name__ == '__main__':
             h.SetYTitle('Events / {:.1f} pC'.format(h.GetBinWidth(1)))
             chain.Project(name, '-integral['+str(k)+']', '-integral['+str(k)+'] != 0')
 
-            x_low, x_up = define_range_around_peak(h, [0.25, 0.3])
+            x_low, x_up, n_pk = define_range_around_peak(h, [0.25, 0.3])
 
             if conf['idx_ref'] >= 0:
                 res = h.Fit('landau','LQSR', '', x_low, x_up)
