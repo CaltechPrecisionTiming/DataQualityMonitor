@@ -34,13 +34,27 @@ class Config:
         for i, l in enumerate(self.raw_conf):
             if l[0] == '#':
                 continue
-            l = l[0:-1].split(' ')
-            if '-->Pri' in l[0]:
+            l = l[0:-1].split()
+            if '-->Print' in l[0]:
                 self.plots = l[1:]
                 print "Plots expected:"
                 print self.plots
             elif '-->XYcenter' in l[0]:
                 self.xy_center = [float(l[1]), float(l[2]), float(l[3])]
+            elif '-->TracksCleaning' in l[0]:
+                self.TracksCleaning = {}
+                cuts = ''
+                for aux in l[1:]:
+                    if aux[:7] == 'CutOnCh':
+                        self.TracksCleaning['ch'] = int(aux[7:])
+                        print 'Cuts from ch', int(aux[7:]), 'will be used for cleaning tracks'
+                    else:
+                        cuts += aux + ' && '
+                if len(cuts) > 3:
+                    self.TracksCleaning['cuts'] = cuts[:-4]
+                    print 'Cleaning tracks with:', cuts[:-4]
+                else:
+                    self.TracksCleaning['cuts'] = ''
             elif len(self.labels) == 0:
                 self.labels = l[1:]
             else:
@@ -187,7 +201,32 @@ if __name__ == '__main__':
     rt.gStyle.SetStatH(0.1);
     rt.gStyle.SetHistLineWidth(2);
 
+    '''=========================== AllTracks ==========================='''
+    if 'AllTracks' in configurations.plots:
+        name = 'h_alltracks'
+        title = 'All tracks at z_DUT[0]'
 
+        var = 'y_dut[0]:x_dut[0]'
+        dy = configurations.xy_center[1]
+        dx = configurations.xy_center[0]
+        width = configurations.xy_center[2]
+
+        h = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
+        h.SetXTitle('x [mm]')
+        h.SetYTitle('y [mm]')
+
+        sel = ''
+        if hasattr(configurations, 'TracksCleaning'):
+            sel += configurations.TracksCleaning['cuts']
+        chain.Project(name, var, sel)
+
+        canvas['AllTracks'] = rt.TCanvas('c_allTracks', 'c_allTracks', 800, 600)
+        h.DrawCopy('colz')
+
+        canvas['AllTracks'].Update()
+        canvas['AllTracks'].SaveAs(out_dir + '/AllTracks.png')
+
+    '''======================= Channels loop ==========================='''
     for k in configurations.ch_ordered:
         print '---> Channel', k
         conf = configurations.channel[k]
@@ -212,19 +251,17 @@ if __name__ == '__main__':
             chain.Project(name, 'amp['+str(k)+']')
 
             Range = [0.0, 9999999.0]
-            if 'amp_min' in conf.keys():
-                conf['amp_min'] = float(conf['amp_min'])
-                Range[0] = conf['amp_min']
-            if 'amp_max' in conf.keys():
-                conf['amp_max'] = float(conf['amp_max'])
-                Range[1] = conf['amp_max']
+            if 'cut' in conf.keys():
+                if conf['cut'][0] in ['a', 'A']:
+                    if 'min' in conf.keys():
+                        Range[0] = float(conf['min'])
+                    if 'max' in conf.keys():
+                        Range[1] = float(conf['max'])
 
-            x_low, x_up, n_pk = define_range_around_peak(h, [0.35, 0.3], Range)
+            x_low, x_up, n_pk = define_range_around_peak(h, [0.2, 0.2], Range)
 
             canvas['amp'][k] = rt.TCanvas('c_amp_'+str(k), 'c_amp_'+str(k), 800, 600)
             h.DrawCopy('E')
-            line.DrawLine(x_low, 0, x_low, h.GetMaximum())
-            line.DrawLine(x_up, 0, x_up, h.GetMaximum())
 
             gr = rt.TGraph(1)
             gr.SetPoint(0, h.GetBinCenter(n_pk), h.GetBinContent(n_pk))
@@ -235,10 +272,15 @@ if __name__ == '__main__':
             if h.GetMaximum() > 5*h.GetBinContent(n_pk):
                 canvas['amp'][k].SetLogy()
 
+            if 'cut' in conf.keys():
+                if conf['cut'][0] in ['a', 'A']:
+                    selection += ' && (amp[{}]>{} && amp[{}]<{})'.format(k, x_low, k, x_up)
+                    line.DrawLine(x_low, 0, x_low, h.GetMaximum())
+                    line.DrawLine(x_up, 0, x_up, h.GetMaximum())
+
             canvas['amp'][k].Update()
             canvas['amp'][k].SaveAs(out_dir + '/Amp_ch{:02d}.png'.format(k))
 
-            selection += ' && (amp[{}]>{} && amp[{}]<{})'.format(k, x_low, k, x_up)
 
         '''=========================== Integral ==========================='''
         if 'Int' in configurations.plots:
@@ -247,26 +289,40 @@ if __name__ == '__main__':
             name = 'h_int_'+str(k)
             title = 'Integral channel '+str(k)
             int_aux = -np.concatenate(list(tree2array(chain, 'integral['+str(k)+']', 'integral['+str(k)+'] != 0')))
-            h = rt.TH1D(name, title, 100, np.percentile(int_aux, 0.1), np.percentile(int_aux, 99.9))
+            h = rt.TH1D(name, title, 100, np.percentile(int_aux, 0.1), np.max(int_aux))
             h.SetXTitle('Integral [pC]')
             h.SetYTitle('Events / {:.1f} pC'.format(h.GetBinWidth(1)))
             chain.Project(name, '-integral['+str(k)+']', '-integral['+str(k)+'] != 0')
 
-            x_low, x_up, n_pk = define_range_around_peak(h, [0.25, 0.3])
+            Range = [0.0, 9999999.0]
+            if 'cut' in conf.keys():
+                if conf['cut'][0] in ['i', 'I']:
+                    if 'min' in conf.keys():
+                        Range[0] = float(conf['min'])
+                    if 'max' in conf.keys():
+                        Range[1] = float(conf['max'])
 
-            if conf['idx_ref'] >= 0:
-                res = h.Fit('landau','LQSR', '', x_low, x_up)
+            x_low, x_up, n_pk = define_range_around_peak(h, [0.25, 0.3], Range)
+
+            h.DrawCopy('E')
+
+            gr = rt.TGraph(1)
+            gr.SetPoint(0, h.GetBinCenter(n_pk), h.GetBinContent(n_pk))
+            gr.SetMarkerStyle(23)
+            gr.SetMarkerColor(2)
+            gr.Draw("P")
 
             if(h.GetMaximum() - h.GetMinimum() > 5000):
                 canvas['int'][k].SetLogy()
-            h.DrawCopy('E')
-            line.DrawLine(x_low, 0, x_low, h.GetMaximum())
-            line.DrawLine(x_up, 0, x_up, h.GetMaximum())
+
+            if 'cut' in conf.keys():
+                if conf['cut'][0] in ['i', 'I']:
+                    selection += ' && (-integral[{}]>{} && -integral[{}]<{})'.format(k, x_low, k, x_up)
+                    line.DrawLine(x_low, 0, x_low, h.GetMaximum())
+                    line.DrawLine(x_up, 0, x_up, h.GetMaximum())
 
             canvas['int'][k].Update()
             canvas['int'][k].SaveAs(out_dir + '/Int_ch{:02d}.png'.format(k))
-
-            selection += ' && (-integral[{}]>{} && -integral[{}]<{})'.format(k, x_low, k, x_up)
 
         '''=========================== Risetime ======================================='''
         if 'Risetime' in configurations.plots:
@@ -323,6 +379,14 @@ if __name__ == '__main__':
 
         '''=========================== Track position ==========================='''
         if conf['idx_dut'] >= 0:
+            if hasattr(configurations, 'TracksCleaning'):
+                selection += ' && ' + configurations.TracksCleaning['cuts']
+
+                if 'ch' in configurations.TracksCleaning.keys():
+                    ch = configurations.TracksCleaning['ch']
+                    if ch < k:
+                        selection += ' && ' + configurations.channel[ch]['sel']
+
             var = 'y_dut[{}]:x_dut[{}]'.format(conf['idx_dut'], conf['idx_dut'])
             dy = configurations.xy_center[1]
             dx = configurations.xy_center[0]
