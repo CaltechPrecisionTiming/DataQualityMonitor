@@ -1,10 +1,13 @@
 import numpy as np
 import os, re, shutil
 import argparse
+import itertools
 import ROOT as rt
 from root_numpy import tree2array
 from lib.histo_utilities import create_TH1D, create_TH2D
-from lib.cebefo_style import cebefo_style
+from lib.cebefo_style import cebefo_style, Set_2D_colz_graphics
+
+donotdelete = []
 
 
 
@@ -55,6 +58,18 @@ class Config:
                     print 'Cleaning tracks with:', cuts[:-4]
                 else:
                     self.TracksCleaning['cuts'] = ''
+            elif '-->TracksConsistency' in l[0]:
+                self.TracksConsistency = {}
+                self.TracksConsistency['Bad'] = 0
+                self.TracksConsistency['Checked'] = 0
+                for aux in l[1:]:
+                    if aux[:5] == 'RefCh':
+                        self.TracksConsistency['RefCh'] = int(aux[5:])
+                        print 'Tracks consistency: ch', int(aux[5:]), 'will be checked'
+
+                    if aux == 'List':
+                        self.TracksConsistency['List'] = 1
+
             elif len(self.labels) == 0:
                 self.labels = l[1:]
             else:
@@ -107,6 +122,36 @@ def define_range_around_peak(h, perc = [0.4, 0.4], Range=[0.0, 99999.0]):
     x_up = h.GetBinLowEdge(n_up) + h.GetBinWidth(n_up)
     return x_low, x_up, n_pk
 
+def rootTH2_to_np(h, cut = None, Norm = False):
+    nx = h.GetNbinsX()
+    ny = h.GetNbinsY()
+
+    arr = np.zeros((ny, nx))
+    pos = np.zeros((ny, nx, 2))
+
+    for ix in range(nx):
+        for iy in range(ny):
+            x = h.GetXaxis().GetBinCenter( ix+1 );
+            y = h.GetYaxis().GetBinCenter( iy+1 );
+            z = h.GetBinContent(h.GetBin(ix+1, iy+1))
+
+            if cut == None:
+                arr[iy, ix] = z
+            else:
+                arr[iy, ix] = z if z > cut else 0
+            pos[iy, ix] = [x,y]
+    return arr, pos
+
+def circle_filter(h_arr, cx, cy, rx, ry):
+    p = 0
+    for i,j in itertools.product(np.arange(h_arr.shape[0]), np.arange(h_arr.shape[1])):
+        if (float(cx-j)/rx)**2 + (float(cy-i)/ry)**2 < 1:
+            p += h_arr[i-1, j-1]
+
+    return p/(np.pi*rx*ry)
+
+
+
 if __name__ == '__main__':
     cebefo_style()
 
@@ -152,7 +197,7 @@ if __name__ == '__main__':
     if os.path.isdir(save_loc):
         if save_loc[-1] != '/':
             save_loc += '/'
-        out_dir = save_loc + 'Run' + str(flag) + '_plots'
+        out_dir = save_loc + 'Run' + str(flag) + '_DQM'
         if os.path.exists(out_dir):
             shutil.rmtree(out_dir)
         os.mkdir(out_dir)
@@ -187,6 +232,7 @@ if __name__ == '__main__':
     canvas['risetime'] = {}
     canvas['wave'] = {}
     canvas['pos'] = {}
+    canvas['pos_sel'] = {}
     canvas['w_pos'] = {}
     canvas['t_res_raw'] = {}
     canvas['space_corr'] = {}
@@ -391,11 +437,12 @@ if __name__ == '__main__':
             dy = configurations.xy_center[1]
             dx = configurations.xy_center[0]
             width = configurations.xy_center[2]
+            N_bins = [100, 100]
             if 'PosRaw' in configurations.plots:
                 name = 'h_pos_'+str(k)
                 title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '], for channel {} selected event'.format(k)
 
-                h = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
+                h = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
                 h.SetXTitle('x [mm]')
                 h.SetYTitle('y [mm]')
 
@@ -403,28 +450,167 @@ if __name__ == '__main__':
 
                 canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
                 h.DrawCopy('colz')
-
                 canvas['pos'][k].Update()
                 canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch{:02d}.png'.format(k))
 
-                if 'PosWeight' in configurations.plots:
-                    name = 'h_weight_pos_'+str(k)
-                    title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel {} selected event'.format(k)
-                    h_w = rt.TH2D(name, title, 100, -width+dx, width+dx, 100, -width+dy, width+dy)
-                    h_w.SetXTitle('x [mm]')
-                    h_w.SetYTitle('y [mm]')
-                    h_w.SetZTitle('Average Integral [pC]')
+            if ('PosSel' in configurations.plots) or ('PosSel+' in configurations.plots):
+                canvas['pos_sel'][k] = rt.TCanvas('c_pos_sel_'+str(k), 'c_pos_sel_'+str(k), 800, 600)
 
-                    weights = '('+ selection +') * amp[' + str(k) + ']'
-                    chain.Project(name, var, weights)
+                name = 'h_pos_sel'
+                title = 'Events average selection efficiency'
+                h = rt.TH3D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy, 2, -0.5, 1.5)
 
-                    if 'PosRaw' in configurations.plots:
-                        h_w.Divide(h)
+                chain.Project(name, selection + ':' + var)
+                h = h.Project3DProfile('yx')
+                h.SetYTitle('y [mm]')
+                h.SetXTitle('x [mm]')
+                h.DrawCopy('colz')
 
-                        canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
-                        h_w.DrawCopy('colz')
-                        canvas['w_pos'][k].Update()
-                        canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
+                # if hasattr(configurations, 'TracksConsistency'):
+                #     if configurations.TracksConsistency['RefCh'] == k:
+                #         x_mean = h.GetMean(1)
+                #         bx = h.GetXaxis().FindBin(x_mean)
+                #         x_sx = h.GetRMS(1)
+                #         bx_sx = h.GetXaxis().GetBinCenter(1) - h.GetXaxis().GetBinWidth(1)*0.51 + x_sx
+                #         bx_sx = h.GetXaxis().FindBin(bx_sx)
+                #
+                #         y_mean = h.GetMean(2)
+                #         by = h.GetYaxis().FindBin(y_mean)
+                #         y_sx = h.GetRMS(2)
+                #         by_sx = h.GetYaxis().GetBinCenter(1) - h.GetYaxis().GetBinWidth(1)*0.51 + y_sx
+                #         by_sx = h.GetYaxis().FindBin(by_sx)
+                #
+                #         arr_h, pos_h = rootTH2_to_np(h, cut=0.2)
+                #
+                #
+                #         best_scale = 0.5
+                #         p_max = 0
+                #         for s in np.arange(0.5, 3, 0.05):
+                #             p = circle_filter(arr_h, bx, by, s*bx_sx, s*by_sx)
+                #             print p
+                #
+                #             if p > p_max:
+                #                 p_max = p
+                #                 best_scale = s
+                #
+                #         print best_scale
+                #
+                #         ell = rt.TEllipse(x_mean, y_mean, best_scale*x_sx, best_scale*y_sx)
+                #         ell.SetLineColor(6)
+                #         ell.SetLineStyle(9)
+                #         ell.SetLineWidth(2)
+                #         ell.SetFillStyle(0)
+                #         ell.Draw()
+                #         donotdelete.append(ell)
+
+
+
+                if ('PosSel+' in configurations.plots) and ('shape' in conf.keys()):
+                    if not conf['shape'] == 'None':
+                        size = conf['shape'].split('x')
+
+                        x = h.GetXaxis().GetBinCenter(1) - h.GetXaxis().GetBinWidth(1)*0.51 + float(size[0])
+                        nbx = h.GetXaxis().FindBin(x)
+
+                        y = h.GetYaxis().GetBinCenter(1) - h.GetYaxis().GetBinWidth(1)*0.51 + float(size[1])
+                        nby = h.GetYaxis().FindBin(y)
+                        # print h.GetYaxis().GetBinCenter(1), y, nby
+
+                        # print nby, nbx
+                        # x_mean = h.GetMean(1)
+                        # x_border = [x_mean - 0.5*float(size[0]), x_mean + 0.5*float(size[0])]
+                        # bx_border = [h.GetXaxis().FindBin(x_border[0]), h.GetXaxis().FindBin(x_border[1])]
+                        #
+                        # y_mean = h.GetMean(1)
+                        # y_border = [y_mean - 0.5*float(size[0]), y_mean + 0.5*float(size[0])]
+                        # by_border = [h.GetXaxis().FindBin(y_border[0]), h.GetXaxis().FindBin(y_border[1])]
+
+                        arr_h, pos_h = rootTH2_to_np(h, cut=0.2)
+                        # print arr_h
+
+                        p_max = 0
+                        idx_max = [0, 0]
+                        for iy in range(0, arr_h.shape[0]-nby):
+                            for ix in range(0, arr_h.shape[1]-nbx):
+                                p = np.sum(arr_h[iy:iy+nby, ix:ix+nbx])
+
+                                if p > p_max:
+                                    p_max = p
+                                    idx_max = [iy, ix]
+
+                        avg_prob = p_max/(nbx*nby)
+                        print avg_prob
+
+                        if hasattr(configurations, 'TracksConsistency'):
+                            configurations.TracksConsistency['Checked'] += 1
+                            x_mean = h.GetMean(1)
+                            bx = h.GetXaxis().FindBin(x_mean)
+                            x_sx = h.GetRMS(1)
+                            bx_sx = h.GetXaxis().GetBinCenter(1) - h.GetXaxis().GetBinWidth(1)*0.51 + x_sx
+                            bx_sx = h.GetXaxis().FindBin(bx_sx)
+
+                            y_mean = h.GetMean(2)
+                            by = h.GetYaxis().FindBin(y_mean)
+                            y_sx = h.GetRMS(2)
+                            by_sx = h.GetYaxis().GetBinCenter(1) - h.GetYaxis().GetBinWidth(1)*0.51 + y_sx
+                            by_sx = h.GetYaxis().FindBin(by_sx)
+
+                            p_circle = -1
+                            if (by_sx != 0) and (bx_sx != 0):
+                                p_circle = circle_filter(arr_h, bx, by, 2*bx_sx, 2*by_sx)
+
+                            print p_circle
+                            if p_circle > avg_prob*0.75 or p_circle == -1:
+                                print 'Possilble random scatter shape'
+                                configurations.TracksConsistency['Bad'] += 1
+
+
+
+                        iy, ix = idx_max
+                        # arr_filter = np.zeros_like(arr_h)
+                        # arr_filter[iy:iy+nby, ix:ix+nbx] = 1.
+                        # print arr_filter
+
+                        x_start = h.GetXaxis().GetBinCenter(ix+1) - 0.5*h.GetXaxis().GetBinWidth(ix+1)
+                        x_stop = h.GetXaxis().GetBinCenter(ix+nbx) + 0.5*h.GetXaxis().GetBinWidth(ix+nbx)
+                        y_start = h.GetYaxis().GetBinCenter(iy+1) - 0.5*h.GetYaxis().GetBinWidth(iy+1)
+                        y_stop = h.GetYaxis().GetBinCenter(iy+nby) + 0.5*h.GetYaxis().GetBinWidth(iy+nby)
+
+                        line.SetLineStyle(9)
+                        line.SetLineColor(6)
+                        line.SetLineWidth(2)
+                        line.DrawLine(x_start, y_start, x_stop, y_start)
+                        line.DrawLine(x_start, y_stop, x_stop, y_stop)
+                        line.DrawLine(x_start, y_start, x_start, y_stop)
+                        line.DrawLine(x_stop, y_start, x_stop, y_stop)
+
+                Set_2D_colz_graphics()
+                canvas['pos_sel'][k].Update()
+                canvas['pos_sel'][k].SaveAs(out_dir + '/PositionXY_sel_ch{:02d}.png'.format(k))
+
+
+
+
+            if 'PosWeight' in configurations.plots:
+                name = 'h_weight_pos_'+str(k)
+                title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel {} selected event'.format(k)
+                h_w = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
+                h_w.SetXTitle('x [mm]')
+                h_w.SetYTitle('y [mm]')
+                h_w.SetZTitle('Average Integral [pC]')
+
+                h = rt.TH2D('h_amp_aux'+str(k), title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
+                chain.Project('h_amp_aux'+str(k), var, selection)
+
+                weights = '('+ selection +') * amp[' + str(k) + ']'
+                chain.Project(name, var, weights)
+
+                h_w.Divide(h)
+
+                canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
+                h_w.DrawCopy('colz')
+                canvas['w_pos'][k].Update()
+                canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
 
         '''=========================== End Selections ==========================='''
         conf['sel'] =  selection
@@ -638,3 +824,23 @@ if __name__ == '__main__':
 
                 canvas['dt_corr'][k].Update()
                 canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch{:02d}.png'.format(k))
+
+    '''End of channels loop'''
+    if hasattr(configurations, 'TracksConsistency'):
+        aux = float(configurations.TracksConsistency['Bad'])/configurations.TracksConsistency['Checked']
+        if aux > 0.3:
+            print '\n\n============ Run to be discarted!!!!! ===============\n\n'
+
+        if 'List' in configurations.TracksConsistency.keys():
+            f_aux = flag[1:]
+            file = args.save_loc
+            if aux > 0.3:
+                file += 'TracksConsistency_Bad.txt'
+            else:
+                file += 'TracksConsistency_Good.txt'
+            if not os.path.exists(file):
+                os.system('touch '+file)
+            if not (int(f_aux) in np.loadtxt(file).astype(np.int)):
+                cmd = 'echo ' + f_aux + ' >> ' + file
+                print cmd
+                os.system(cmd)
