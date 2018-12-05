@@ -1,11 +1,16 @@
 #-->Print: Amp PosRaw PosWeight TimeResRaw TimeCorrected
--->Print: AllTracks Amp Int PosRaw PosWeight WaveColor TimeResRaw
--->XYcenter-width: 20 25 20
+#-->Print: AllTracks Amp Int PosRaw PosWeight WaveColor TimeResRaw
+#-->Print: Amp PosRaw PosWeight TimeResRaw TimeCorrected
+-->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight TimeResRaw TimeResRaw2D TimeRes2DAmp
+-->XYcenter-width: 15 25 10
 -->TracksCleaning: CutOnCh9 ntracks==1 chi2<5
-ch_num   idx_time  idx_dut   idx_ref      var_ref  cut  min    max
-9               1        0        -1    gaus_mean    I    0    200
-14              1        0        -1         None    A  600   1200
-15              1        0        -1         None    A  600   1200
-18              2        0        -1    gaus_mean    I    0    200
-24              2        0        -1         None    A  200    800
-25              2        0        -1         None    A  200    800
+-->Var_photek: gaus_mean
+-->Var_amp: None
+-->Var_time: LP2_10 IL_20 SPL_20
+ch_num   idx_time  idx_dut   idx_ref     type  cut  min    max  shape
+9               1        0        -1   photek    I    0    200   None
+14              1        0         9     time    A  600   1200    8x8
+#15              1        0         9     time    A  600   1200   11x7
+#18              2       -1        -1   photek    I    0    200   None
+#24              2        0        -1    amp14    A  200    800    8x8
+#25              2        0        -1    amp15    A  200    800   11x7

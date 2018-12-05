@@ -1,8 +1,38 @@
 import numpy as np
 import ROOT as rt
 import root_numpy as rtnp
+from scipy.interpolate import PchipInterpolator
 
 std_color_list = [1, 2, 4, 8, 6, 28, 43, 7, 25]
+
+def quantile(a, p, weight=None, f=None):
+    q = np.percentile(a, 100*p).astype(np.float64)
+
+    if weight == None:
+        weight = np.full_like(a, 1.0/a.shape[0], np.float64)
+
+    if not f==None:
+        f_q = f(q)
+    else:
+        # h = create_TH1D(a, binning=[None, np.percentile(a, 5), np.percentile(a, 95)], weights=weight)
+        # h.Scale(1./a.shape[0])
+        # f_q = h.GetBinContent(h.FindBin(q))
+
+        F = np.cumsum(weight, dtype=np.float64)
+        a_s = np.sort(a).astype(np.float64)
+        i = 0
+        while(i<a_s.shape[0]-1):
+            if a_s[i] == a_s[i+1]:
+                a_s = np.delete(a_s, i)
+                F = np.delete(F, i)
+            else:
+                i += 1
+        spl = PchipInterpolator(a_s, F)
+        f = spl.derivative()
+        f_q = f(q)
+
+    sigma_q = p*(1-p)/(a.shape[0]*f_q**2)
+    return q, sigma_q
 
 def create_TH1D(x, name='h', title=None, binning=[None, None, None], weights=None, h2clone=None, axis_title = ['','']):
     if title is None:

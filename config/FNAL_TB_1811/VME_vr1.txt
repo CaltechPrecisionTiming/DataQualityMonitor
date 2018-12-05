@@ -1,5 +1,5 @@
 #-->Print: Amp PosRaw PosWeight TimeResRaw TimeCorrected
--->Print: AllTracks Amp Int PosRaw PosSel+
+-->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight
 -->XYcenter-width: 15 25 10
 -->TracksCleaning: CutOnCh9 ntracks==1 chi2<5
 -->TracksConsistency: RefCh9 List
