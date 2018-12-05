@@ -860,7 +860,7 @@ if __name__ == '__main__':
     print '\n\n======================= Summary =============================='
     table =  PrettyTable(['Ch', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
     for k, res in best_result.iteritems():
-        row = [str(k), '{:.2} +/ {:.2}'.format(res.dT[0],res.dT[1])]
+        row = [str(k), '{:.2f} +/- {:.2f}'.format(res.dT[0],res.dT[1])]
         row += [res.var[1], res.var[0], 'Yes' if res.AmpCorr else 'No']
         table.add_row(row)
 
