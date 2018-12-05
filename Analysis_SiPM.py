@@ -2,6 +2,8 @@ import numpy as np
 import os, re, shutil
 import argparse
 import itertools
+from prettytable import PrettyTable
+
 import ROOT as rt
 from root_numpy import tree2array, tree2rec
 from lib.histo_utilities import create_TH1D, create_TH2D, quantile
@@ -156,7 +158,35 @@ def circle_filter(h_arr, cx, cy, rx, ry):
 
     return p/(np.pi*rx*ry)
 
+def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas):
+    q_up, e_up = quantile(1000*dt, 0.15)
+    q_dwn, e_dwn = quantile(1000*dt, 0.85)
+    disp_est = 0.5*np.abs(q_up - q_dwn)
+    disp_unc = 0.5*np.hypot(e_up, e_dwn)
 
+    out_list.append([disp_est, disp_unc])
+    ix = h2D.GetXaxis().FindBin(0.5*(xu+xd))
+    iy = h2D.GetYaxis().FindBin(0.5*(yu+yd))
+    ig = h2D.GetBin(ix, iy)
+    h2D.SetBinContent(ig, disp_est)
+    h2D.SetBinError(ig, disp_unc)
+
+    median = np.percentile(dt, 50)
+    width = np.abs(np.percentile(dt, 10) - np.percentile(dt, 90))
+    tag = tagin+'_'+str(k)+'_'+str(ib)
+    h = create_TH1D(dt, 'h_'+tag,
+                    title_tag + ' time resolution - x #in [{:.1f}, {:.1f}], y #in [{:.1f}, {:.1f}]'.format(xd, xu, yd, yu),
+                    binning = [ None, median-2*width, median+2*width],
+                    axis_title = [var_dT + ' [ns]', 'Events'])
+    canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
+    h.Fit('gaus', 'LQR','', np.percentile(dt, 20), np.percentile(dt, 98))
+    h = h.DrawCopy('LE')
+
+    l = rt.TLatex()
+    l.SetTextSize(0.04);
+    l.DrawLatexNDC(0.15, 0.85, 'Unbiased dispersion: {:.1f} #pm {:.1f}'.format(disp_est, disp_unc))
+    canvas['c_'+tag].Update()
+    canvas['c_'+tag].SaveAs(out_dir + '/'+tagin+'_ch{:02d}/'.format(k)+tag+'.png')
 
 if __name__ == '__main__':
     cebefo_style()
@@ -581,316 +611,260 @@ if __name__ == '__main__':
 
     print '\n\n======================= Timing performances loop ==========================='
 
+    headout_dir = out_dir
+    best_result = {}
     for k in configurations.ch_ordered:
         conf = configurations.channel[k]
         if (not 'time' in conf['type']) or conf['idx_ref'] < 0:
             continue
         print '---> Channel', k
 
+        best_result[k] = Bauble()
+        best_result[k].dT = [-1, -1]
+        best_result[k].var = [None, None]
+        best_result[k].AmpCorr = False
 
-        '''=========================== Raw time resolution ==========================='''
         ref_type = configurations.channel[conf['idx_ref']]['type']
-        time_var_chref = configurations.Var[ref_type][0]+'[{}]'.format(conf['idx_ref'])
 
-        time_var = configurations.Var['time'][0] + '[{}]'.format(k)
+        for v_ref, v_time in itertools.product(configurations.Var[ref_type], configurations.Var['time']):
+            print 'Running on:', v_time, v_ref
 
-        var_dT = time_var + ' - ' + time_var_chref
+            time_var_chref = v_ref+'[{}]'.format(conf['idx_ref'])
+            time_var = v_time + '[{}]'.format(k)
 
-        selection = conf['sel'] +' && ' + configurations.channel[conf['idx_ref']]['sel'] + ' && {} != 0'.format(time_var) +' && ' + conf['space_sel']['cut']
+            out_dir = '{}/{}_{}'.format(headout_dir, v_time, v_ref)
+            if not os.path.exists(out_dir):
+                os.mkdir(out_dir)
+                shutil.copy('lib/index.php', out_dir + '/index.php')
 
-        if 'TimeResRaw' in configurations.plots:
-            delta_t =  tree2array(chain, var_dT, selection).flatten()
-            if ( len(delta_t) ==0):
-                print 'Empty delta'
-                continue
+            var_dT = time_var + ' - ' + v_ref+'[{}]'.format(conf['idx_ref'])
 
-            if os.uname()[1].startswith('lxplus'):
-                median = np.percentile(delta_t, 50)[0]
-                width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))[0]
-            else:
-                median = np.percentile(delta_t, 50)
-                width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
+            selection = conf['sel'] +' && ' + configurations.channel[conf['idx_ref']]['sel'] + ' && {} != 0'.format(time_var) +' && ' + conf['space_sel']['cut']
 
-            name = 'h_delta_t_raw_'+str(k)
-            if width == 0:
-                width = np.std(delta_t)
-            if width == 0:
-                width = 0.1
-            title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
-            h = create_TH1D(delta_t, name, title,
-                                binning = [ None, median-2*width, median+2*width],
-                                axis_title = [var_dT + ' [ns]', 'Events'])
+            if 'TimeRes2DAmp' in configurations.plots:
+                for kk in configurations.ch_ordered:
+                    if configurations.channel[kk]['type'] == 'amp'+str(k):
+                        selection += ' && ' + configurations.channel[kk]['sel']
 
-            rt.gStyle.SetStatX(1.)
-            canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
-            h.Fit('gaus', 'LQR','', median-width, median+width)
-            h = h.DrawCopy('LE')
-            canvas['t_res_raw'][k].Update()
-            canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch{:02d}.png'.format(k))
+            '''=========================== Raw time resolution ==========================='''
+            if 'TimeResRaw' in configurations.plots:
+                delta_t =  tree2array(chain, var_dT, selection).flatten()
+                if ( len(delta_t) ==0):
+                    print 'Empty delta'
+                    continue
 
-        if 'TimeResRaw2D' in configurations.plots:
-            if not 'shape' in conf.keys():
-                print 'Please specify a shape for ch', k, 'in order to print TimeResRaw2D'
-                continue
+                if os.uname()[1].startswith('lxplus'):
+                    median = np.percentile(delta_t, 50)[0]
+                    width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))[0]
+                else:
+                    median = np.percentile(delta_t, 50)
+                    width = np.abs(np.percentile(delta_t, 10) - np.percentile(delta_t, 90))
 
-            data_raw = tree2rec(chain, [var_dT, conf['x_rot'], conf['y_rot']], selection)
-            data = np.zeros((data_raw.shape[0],3))
-            for iev, d in enumerate(data_raw):
-                data[iev] = [d[0][0], d[1], d[2]]
+                name = 'h_delta_t_raw_'+str(k)
+                if width == 0:
+                    width = np.std(delta_t)
+                if width == 0 or np.isnan(width):
+                    width = 0.1
+                if np.isnan(median):
+                    continue
+                title = 'Time resolution for channel '+str(k)+', width 10-90 = {:.2f} ns'.format(width)
+                h = create_TH1D(delta_t, name, title,
+                                    binning = [ None, median-2*width, median+2*width],
+                                    axis_title = [var_dT + ' [ns]', 'Events'])
 
-            if ( len(data) ==0):
-                print 'Empty delta'
-                continue
-
-            bin_width = 1.
-            lim = np.array(conf['space_sel']['limits']).astype(np.float)
-            size = np.array(conf['shape'].split('x')).astype(np.float)
-
-            x_sec, x_step = np.linspace(lim[0], lim[1], 1+int(size[0]/bin_width), retstep=True)
-            y_sec, y_step = np.linspace(lim[2], lim[3], 1+int(size[1]/bin_width), retstep=True)
-
-            if lim[1]-lim[0]+2*x_step >= lim[3]-lim[2]+2*y_step:
-                b = [x_sec.shape[0]+1, lim[0]-x_step, lim[1]+x_step]
-                space_diff = lim[1]-lim[0]+2*x_step - (lim[3]-lim[2])
-                adding_steps = int(space_diff/y_step)
-                if adding_steps%2 == 1:
-                    adding_steps +=1
-                b += [y_sec.shape[0]-1+adding_steps, lim[2]-y_step*adding_steps/2, lim[3]+y_step*adding_steps/2]
-            else:
-                b = [y_sec.shape[0]+1, lim[2]-y_step, lim[3]+y_step]
-                space_diff = lim[3]-lim[2]+2*y_step - (lim[1]-lim[0])
-                adding_steps = int(space_diff/x_step)
-                if adding_steps%2 == 1:
-                    adding_steps +=1
-                b = [x_sec.shape[0]-1+adding_steps, lim[0]-x_step*adding_steps/2, lim[1]+x_step*adding_steps/2] + b
-
-            name = 'h_TimeResRaw2D_ch{:02d}'.format(k)
-            title = 'Raw time res breakdown ch{:02d}'.format(k)
-            h_2D_res_raw = rt.TH2D(name, title, b[0], b[1], b[2], b[3], b[4], b[5])
-            ResRaw = []
-
-            it = itertools.product(zip(x_sec[:-1], x_sec[1:]), zip(y_sec[:-1], y_sec[1:]))
-            os.mkdir(out_dir + '/TimeResRaw2D_ch{:02d}'.format(k))
-            shutil.copy('lib/index.php', out_dir + '/TimeResRaw2D_ch{:02d}'.format(k)+'/index.php')
-            for ib, ((xd, xu), (yd, yu)) in enumerate(it):
-                selx = np.logical_and(data[:,1]>xd, data[:,1]<xu)
-                sely = np.logical_and(data[:,2]>yd, data[:,2]<yu)
-                sel = np.logical_and(selx, sely)
-                if np.sum(sel) < 10:
-                    print '[WARNING] Low stat in ch', k, 'pos [{:.1f}, {:.1f}, {:.1f}, {:.1f}]'.format(xd, xu, yd, yu)
-                aux_d = data[sel]
-                dt = aux_d[:,0]
-
-                q_up, e_up = quantile(1000*dt, 0.15)
-                q_dwn, e_dwn = quantile(1000*dt, 0.85)
-                disp_est = 0.5*np.abs(q_up - q_dwn)
-                disp_unc = 0.5*np.hypot(e_up, e_dwn)
-
-                ResRaw.append([disp_est, disp_unc])
-                ix = h_2D_res_raw.GetXaxis().FindBin(0.5*(xu+xd))
-                iy = h_2D_res_raw.GetYaxis().FindBin(0.5*(yu+yd))
-                ig = h_2D_res_raw.GetBin(ix, iy)
-                h_2D_res_raw.SetBinContent(ig, disp_est)
-                h_2D_res_raw.SetBinError(ig, disp_unc)
-
-                median = np.percentile(dt, 50)
-                width = np.abs(np.percentile(dt, 10) - np.percentile(dt, 90))
-                tag = 'TimeResRaw2D_'+str(k)+'_'+str(ib)
-                h = create_TH1D(dt, 'h_'+tag,
-                                'Raw Time resolution - x #in [{:.1f}, {:.1f}], y #in [{:.1f}, {:.1f}]'.format(xd, xu, yd, yu),
-                                binning = [ None, median-2*width, median+2*width],
-                                axis_title = [var_dT + ' [ns]', 'Events'])
-                canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
+                rt.gStyle.SetStatX(1.)
+                canvas['t_res_raw'][k] = rt.TCanvas('c_t_res_raw_'+str(k), 'c_t_res_raw_'+str(k), 800, 600)
                 h.Fit('gaus', 'LQR','', median-width, median+width)
                 h = h.DrawCopy('LE')
+                canvas['t_res_raw'][k].Update()
+                canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch{:02d}.png'.format(k))
 
+            '''=========================== Time resolution 2D ==========================='''
+            if 'TimeResRaw2D' in configurations.plots:
+                if not 'shape' in conf.keys():
+                    print 'Please specify a shape for ch', k, 'in order to print TimeResRaw2D'
+                    continue
+
+                b = [var_dT, conf['x_rot'], conf['y_rot']]
+                if 'TimeRes2DAmp' in configurations.plots:
+                    for kk in configurations.ch_ordered:
+                        if configurations.channel[kk]['type'] == 'amp'+str(k):
+                            b += ['amp[{}]'.format(kk)]
+                    if len(b) == 3:
+                        print 'Amplitude channel not found'
+                        continue
+
+                data_raw = tree2array(chain, b, selection).view(np.recarray)
+                data = np.zeros((data_raw.shape[0],3))
+                if 'TimeRes2DAmp' in configurations.plots:
+                    data = np.zeros((data_raw.shape[0],4))
+                    for iev, d in enumerate(data_raw):
+                        data[iev] = [d[0][0], d[1], d[2], d[3]]
+                else:
+                    for iev, d in enumerate(data_raw):
+                        data[iev] = [d[0][0], d[1], d[2]]
+
+                if ( len(data) ==0):
+                    print 'Empty delta'
+                    continue
+
+                bin_width = 1.
+                lim = np.array(conf['space_sel']['limits']).astype(np.float)
+                size = np.array(conf['shape'].split('x')).astype(np.float)
+
+                x_sec, x_step = np.linspace(lim[0], lim[1], 1+int(size[0]/bin_width), retstep=True)
+                y_sec, y_step = np.linspace(lim[2], lim[3], 1+int(size[1]/bin_width), retstep=True)
+
+                if lim[1]-lim[0]+2*x_step >= lim[3]-lim[2]+2*y_step:
+                    b = [x_sec.shape[0]+1, lim[0]-x_step, lim[1]+x_step]
+                    space_diff = lim[1]-lim[0]+2*x_step - (lim[3]-lim[2])
+                    adding_steps = int(space_diff/y_step)
+                    if adding_steps%2 == 1:
+                        adding_steps +=1
+                    b += [y_sec.shape[0]-1+adding_steps, lim[2]-y_step*adding_steps/2, lim[3]+y_step*adding_steps/2]
+                else:
+                    b = [y_sec.shape[0]+1, lim[2]-y_step, lim[3]+y_step]
+                    space_diff = lim[3]-lim[2]+2*y_step - (lim[1]-lim[0])
+                    adding_steps = int(space_diff/x_step)
+                    if adding_steps%2 == 1:
+                        adding_steps +=1
+                    b = [x_sec.shape[0]-1+adding_steps, lim[0]-x_step*adding_steps/2, lim[1]+x_step*adding_steps/2] + b
+
+                name = 'h_TimeResRaw2D_ch{:02d}'.format(k)
+                title = 'Raw time res breakdown ch{:02d}'.format(k)
+                h_2D_res_raw = rt.TH2D(name, title, b[0], b[1], b[2], b[3], b[4], b[5])
+                ResRaw = []
+
+                if 'TimeRes2DAmp' in configurations.plots:
+                    name = 'h_TimeRes2DAmp_ch{:02d}'.format(k)
+                    title = 'Time resolution amplitude corrected breakdown ch{:02d}'.format(k)
+                    h_2D_res_amp = rt.TH2D(name, title, b[0], b[1], b[2], b[3], b[4], b[5])
+                    ResAmp = []
+
+
+                it = itertools.product(zip(x_sec[:-1], x_sec[1:]), zip(y_sec[:-1], y_sec[1:]))
+                os.mkdir(out_dir + '/TimeResRaw2D_ch{:02d}'.format(k))
+                shutil.copy('lib/index.php', out_dir + '/TimeResRaw2D_ch{:02d}'.format(k)+'/index.php')
+                if 'TimeRes2DAmp' in configurations.plots:
+                    os.mkdir(out_dir + '/TimeRes2DAmp_ch{:02d}'.format(k))
+                    shutil.copy('lib/index.php', out_dir +  '/TimeRes2DAmp_ch{:02d}'.format(k)+'/index.php')
+
+                for ib, ((xd, xu), (yd, yu)) in enumerate(it):
+                    selx = np.logical_and(data[:,1]>xd, data[:,1]<xu)
+                    sely = np.logical_and(data[:,2]>yd, data[:,2]<yu)
+                    sel = np.logical_and(selx, sely)
+                    if np.sum(sel) < 10:
+                        print '[WARNING] Low stat in ch', k, 'pos [{:.1f}, {:.1f}, {:.1f}, {:.1f}]'.format(xd, xu, yd, yu)
+                    aux_d = data[sel]
+                    dt = aux_d[:,0]
+
+                    fill_TimeResHisto(k, dt,
+                                      h_2D_res_raw,
+                                      ResRaw, 'TimeResRaw2D',
+                                      'Raw',
+                                      canvas)
+
+
+                    if 'TimeRes2DAmp' in configurations.plots:
+                        dt_sel = np.logical_and(dt>median-2*width, dt<median+2*width)
+                        amp = aux_d[:,3]
+                        inputs = np.column_stack((np.ones_like(amp), amp, amp**2))
+                        coeff, r, rank, s = np.linalg.lstsq(inputs[dt_sel], dt[dt_sel], rcond=None)
+                        b = [None, None, None, None, median-2*width, median+2*width]
+                        h_TvsA = create_TH2D(np.column_stack((amp, dt)),
+                                             'h_TvsA', 'Channel '+str(k),
+                                             binning=b,
+                                             axis_title=['Amp [mV]', var_dT + ' [ns]']
+                                             )
+                        canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 800, 600)
+                        h_TvsA.DrawCopy('colz')
+                        prof = h_TvsA.ProfileX('prof_amp')
+                        prof.SetLineColor(6)
+                        prof.SetLineWidth(2)
+                        prof.DrawCopy('SAMEE1')
+
+                        f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', np.min(amp), np.max(amp))
+                        for j,a in enumerate(coeff):
+                            f.SetParameter(j, a)
+                        f.SetLineColor(6)
+                        f.SetLineStyle(9)
+                        f.DrawCopy('SAMEL')
+                        canvas['dt_vs_amp'][k].Update()
+                        canvas['dt_vs_amp'][k].SaveAs(out_dir +  '/TimeRes2DAmp_ch{:02d}'.format(k)+'/TvsAmp_{}.png'.format(ib))
+
+                        dt_corr = dt - np.dot(inputs, coeff)
+
+                        fill_TimeResHisto(k, dt_corr,
+                                          h_2D_res_amp,
+                                          ResAmp, 'TimeRes2DAmp',
+                                          'Amplitude corrected',
+                                          canvas)
+
+
+                ResRaw = np.array(ResRaw)
+                tag = 'TimeResRaw2D_ch{:02d}'.format(k)
+                canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
+                Set_2D_colz_graphics()
+                h_2D_res_raw.GetZaxis().SetRangeUser(0.9*np.min(ResRaw[:,0]), 1.1*np.max(ResRaw[:,0]))
+                h_2D_res_raw.SetStats(0)
+                h_2D_res_raw.SetYTitle('y [mm]')
+                h_2D_res_raw.SetXTitle('x [mm]')
+                h_2D_res_raw.SetZTitle(var_dT+' [ps]')
+                h_2D_res_raw.DrawCopy('colz')
+                rt.gStyle.SetPaintTextFormat(".1f");
+                h_2D_res_raw.DrawCopy('TEXT SAME ERROR')
+
+                avg_time_res = np.average(ResRaw[:,0], weights=1./np.square(ResRaw[:,1]))
+                d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResRaw[:,1])))
+                if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
+                    best_result[k].dT = [avg_time_res, d_avg_time_res]
+                    best_result[k].var = [v_time, v_ref]
+                    best_result[k].AmpCorr = False
+
+                msg = 'Average time resolution: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
+                print msg
                 l = rt.TLatex()
                 l.SetTextSize(0.04);
-                l.DrawLatexNDC(0.15, 0.85, 'Unbiased dispersion: {:.1f} #pm {:.1f}'.format(disp_est, disp_unc))
+                l.DrawLatexNDC(0.15, 0.89, msg.replace('+/-', '#pm'))
                 canvas['c_'+tag].Update()
-                canvas['c_'+tag].SaveAs(out_dir + '/TimeResRaw2D_ch{:02d}/'.format(k)+tag+'.png')
+                canvas['c_'+tag].SaveAs(out_dir + '/TimeResRaw2D_ch{:02d}.png'.format(k))
 
-            ResRaw = np.array(ResRaw)
-            tag = 'TimeResRaw2D_ch{:02d}'.format(k)
-            canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
-            Set_2D_colz_graphics()
-            h_2D_res_raw.GetZaxis().SetRangeUser(0.9*np.min(ResRaw[:,0]), 1.1*np.max(ResRaw[:,0]))
-            h_2D_res_raw.SetStats(0)
-            h_2D_res_raw.SetYTitle('y [mm]')
-            h_2D_res_raw.SetXTitle('x [mm]')
-            h_2D_res_raw.SetXTitle('Time Resolution [ps]')
-            h_2D_res_raw.DrawCopy('colz')
-            rt.gStyle.SetPaintTextFormat(".1f");
-            h_2D_res_raw.DrawCopy('TEXT SAME ERROR')
+                if 'TimeRes2DAmp' in configurations.plots:
+                    ResAmp = np.array(ResAmp)
+                    tag = 'TimeRes2DAmp_ch{:02d}'.format(k)
+                    canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
+                    Set_2D_colz_graphics()
+                    h_2D_res_amp.GetZaxis().SetRangeUser(0.9*np.min(ResAmp[:,0]), 1.1*np.max(ResAmp[:,0]))
+                    h_2D_res_amp.SetStats(0)
+                    h_2D_res_amp.SetYTitle('y [mm]')
+                    h_2D_res_amp.SetXTitle('x [mm]')
+                    h_2D_res_amp.SetZTitle(var_dT+' [ps]')
+                    h_2D_res_amp.DrawCopy('colz')
+                    rt.gStyle.SetPaintTextFormat(".1f");
+                    h_2D_res_amp.DrawCopy('TEXT SAME ERROR')
 
-            avg_time_res = np.average(ResRaw[:,0], weights=1./np.square(ResRaw[:,1]))
-            d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResRaw[:,1])))
-            msg = 'Average time resolution: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
-            print msg
-            l = rt.TLatex()
-            l.SetTextSize(0.04);
-            l.DrawLatexNDC(0.15, 0.89, msg.replace('+/-', '#pm'))
-            canvas['c_'+tag].Update()
-            canvas['c_'+tag].SaveAs(out_dir + '/TimeResRaw2D_ch{:02d}.png'.format(k))
+                    avg_time_res = np.average(ResAmp[:,0], weights=1./np.square(ResAmp[:,1]))
+                    d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResAmp[:,1])))
+                    if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
+                        best_result[k].dT = [avg_time_res, d_avg_time_res]
+                        best_result[k].var = [v_time, v_ref]
+                        best_result[k].AmpCorr = True
+                    msg = 'Average time resolution after Amp correction: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
+                    print msg
+                    l = rt.TLatex()
+                    l.SetTextSize(0.04);
+                    l.DrawLatexNDC(0.15, 0.89, msg.replace('+/-', '#pm'))
+                    canvas['c_'+tag].Update()
+                    canvas['c_'+tag].SaveAs(out_dir + '/TimeRes2DAmp_ch{:02d}.png'.format(k))
 
+    print '\n\n======================= Summary =============================='
+    table =  PrettyTable(['Ch', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
+    for k, res in best_result.iteritems():
+        row = [str(k), '{:.2} +/ {:.2}'.format(res.dT[0],res.dT[1])]
+        row += [res.var[1], res.var[0], 'Yes' if res.AmpCorr else 'No']
+        table.add_row(row)
 
-
-
-        # selection += '&& ({}>{} && {}<{})'.format(var_dT, median-width, var_dT, median+width)
-        # delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
-        # arr = {}
-        #
-        # if 'TimeCorrected' in configurations.plots:
-        #         '''=========================== Time resolution vs impact point ==========================='''
-        #         i_s = conf['idx_dut']
-        #
-        #         name = 'c_space_corr'+str(k)
-        #         canvas['space_corr'][k] = rt.TCanvas(name, name, 1000, 600)
-        #         canvas['space_corr'][k].Divide(2)
-        #
-        #         selection += ' && ntracks == 1 && chi2 < 8'
-        #         if chain.GetEntries(selection) == 0:
-        #             continue
-        #         delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
-        #
-        #         add_sel = ''
-        #         continue_happened = False
-        #         for i, c in enumerate(['x', 'y']):
-        #             conf[c] = {}
-        #             pos = np.concatenate(list(tree2array(chain, c+'_dut[0]', selection)))
-        #             conf[c]['pl'] = np.percentile(pos, 5)
-        #             conf[c]['ph'] = np.percentile(pos, 90)
-        #             add_sel += ' && '+c+'_dut['+str(i_s)+'] > ' + str(conf[c]['pl']) + ' && '+c+'_dut['+str(i_s)+'] < ' + str(conf[c]['ph'])
-        #
-        #             canvas['space_corr'][k].cd(i+1)
-        #             h = create_TH2D(np.column_stack((pos, delta_t)), name=c+name, title='Time resolution '+c+' dependence',
-        #                             binning=[50, conf[c]['pl']-4, conf[c]['ph']+4, 50, median-2*width, median+2*width],
-        #                             axis_title=[c+' [mm]', '#DeltaT [ns]']
-        #                            )
-        #
-        #             h.DrawCopy('COLZ')
-        #
-        #             prof = h.ProfileX('prof_'+c )
-        #             prof.SetLineColor(2)
-        #             prof.SetLineWidth(2)
-        #
-        #             f = rt.TF1(c+'_fit','[0]+[1]*x+[2]*x^2',conf[c]['pl'], conf[c]['ph'])
-        #
-        #             aux_t = delta_t[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
-        #             pos = pos[np.logical_and(pos>conf[c]['pl'], pos<conf[c]['ph'])]
-        #             in_arr = np.column_stack((0*pos+1, pos, pos**2))
-        #             if in_arr.shape[0] < 5 or aux_t.shape[0] < 5:
-        #                 continue_happened = True
-        #                 continue
-        #             coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*pos+1, pos, pos**2)), aux_t, rcond=None)
-        #             for j,a in enumerate(coeff):
-        #                 f.SetParameter(j, a)
-        #             conf[c]['coeff'] = np.flipud(coeff)
-        #             f.SetLineColor(6)
-        #             f.DrawCopy('SAMEL')
-        #
-        #             prof.DrawCopy('SAMEE')
-        #
-        #         if continue_happened:
-        #             continue
-        #
-        #         canvas['space_corr'][k].Update()
-        #         canvas['space_corr'][k].SaveAs(out_dir + '/TimeResolution_Position_dependece_ch{:02d}.png'.format(k))
-        #
-        #
-        #         line = rt.TLine()
-        #         line.SetLineColor(6)
-        #         line.SetLineStyle(7)
-        #         line.SetLineWidth(3)
-        #         for can in [canvas['pos'][k], canvas['w_pos'][k]]:
-        #             can.cd()
-        #             line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['pl'], conf['y']['ph'])
-        #             line.DrawLine(conf['x']['ph'], conf['y']['pl'], conf['x']['ph'], conf['y']['ph'])
-        #             line.DrawLine(conf['x']['pl'], conf['y']['pl'], conf['x']['ph'], conf['y']['pl'])
-        #             line.DrawLine(conf['x']['pl'], conf['y']['ph'], conf['x']['ph'], conf['y']['ph'])
-        #         canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
-        #         canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch{:02d}.png'.format(k))
-        #
-        #         selection += add_sel
-        #         arr['x'] = np.concatenate(list(tree2array(chain, 'x_dut[0]', selection)))
-        #         arr['y'] = np.concatenate(list(tree2array(chain, 'y_dut[0]', selection)))
-        #         delta_t = np.concatenate(list(tree2array(chain, var_dT, selection)))
-        #
-        #         dt_space_corrected = np.copy(delta_t)
-        #         for c in ['x', 'y']:
-        #             dt_space_corrected -= np.polyval(conf[c]['coeff'], arr[c])
-        #
-        #         h = create_TH1D(dt_space_corrected, 'h_delta_space_corr'+str(k), 'Time resolution space corrected ch '+str(k),
-        #                         binning = [ None, np.min(dt_space_corrected), np.max(dt_space_corrected)],
-        #                         axis_title = [var_dT+' [ns]', 'Events'])
-        #
-        #         canvas['t_res_space'][k] = rt.TCanvas('c_t_res_space'+str(k), 'c_t_res_raw'+str(k), 700, 500)
-        #         h.DrawCopy('E1')
-        #         canvas['t_res_space'][k].Update()
-        #         canvas['t_res_space'][k].SaveAs(out_dir + '/TimeResolution_space_ch{:02d}.png'.format(k))
-        #
-        #         '''=========================== Time resolution vs amplitude ==========================='''
-        #         conf['amp'] = {}
-        #         print selection
-        #         arr['amp'] = np.concatenate(list(tree2array(chain, 'amp['+str(k)+']', selection)))
-        #         canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 1200, 600)
-        #         canvas['dt_vs_amp'][k].Divide(2)
-        #
-        #         h = create_TH2D(np.column_stack((arr['amp'], delta_t)), name='h_amp_dip', title='h_amp_dip',
-        #                             binning=[50, np.min(arr['amp']), np.max(arr['amp']), 50, np.min(delta_t), np.max(delta_t)],
-        #                             axis_title=['Amp [mV]', '#DeltaT [ns]']
-        #                            )
-        #         canvas['dt_vs_amp'][k].cd(1)
-        #         h.DrawCopy('colz')
-        #         prof = h.ProfileX('prof_amp')
-        #         prof.SetLineColor(6)
-        #         prof.SetLineWidth(2)
-        #         prof.DrawCopy('SAMEE1')
-        #
-        #         f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', np.min(arr['amp']), np.max(arr['amp']))
-        #         f.DrawCopy('SAMEL')
-        #
-        #         coeff, r, rank, s = np.linalg.lstsq(np.column_stack((0*arr['amp']+1, arr['amp'], arr['amp']**2)), delta_t, rcond=None)
-        #         for j,a in enumerate(coeff):
-        #             f.SetParameter(j, a)
-        #         conf['amp']['coeff'] = np.flipud(coeff)
-        #         f.SetLineColor(6)
-        #         f.SetLineStyle(9)
-        #         f.DrawCopy('SAMEL')
-        #
-        #
-        #         dt_amp_corrected = np.copy(delta_t) - np.polyval(conf['amp']['coeff'], arr['amp'])
-        #
-        #         h = create_TH1D(dt_amp_corrected, 'h_delta_amp_corr'+str(k), 'Time resolution amp corrected',
-        #                         binning = [ None, np.min(dt_amp_corrected), np.max(dt_amp_corrected)],
-        #                         axis_title = [var_dT+' [ns]', 'Events'])
-        #         canvas['dt_vs_amp'][k].cd(2)
-        #         h.Fit('gaus', 'LQR','', np.percentile(dt_amp_corrected, 1), np.percentile(dt_amp_corrected, 99))
-        #         h.DrawCopy('E1')
-        #
-        #         canvas['dt_vs_amp'][k].Update()
-        #         canvas['dt_vs_amp'][k].SaveAs(out_dir + '/TimeResolution_amp_ch{:02d}.png'.format(k))
-        #
-        #         '''=========================== Time resolution w/ one-shot corrections ==========================='''
-        #         def create_regression_input(x, y, amp):
-        #             out = (np.ones_like(x), x, y, amp, x**2, y**2, amp**2, x*y, amp*x, amp*y)
-        #             return np.column_stack(out)
-        #
-        #         inputs = create_regression_input(arr['x'], arr['y'], arr['amp'])
-        #         coeff, r, rank, s = np.linalg.lstsq(inputs, delta_t, rcond=None)
-        #
-        #         dt_corr = delta_t - np.dot(inputs, coeff)
-        #
-        #         h = create_TH1D(dt_corr, 'h_dt_corr'+str(k), 'Time resolution one-shot correction',
-        #                         binning = [ None, np.min(dt_corr), np.max(dt_corr)],
-        #                         axis_title = [var_dT+' [ns]', 'Events'])
-        #
-        #         f = rt.TF1('f_corr'+str(k),'gaus', np.percentile(dt_corr, 3), np.percentile(dt_corr, 97))
-        #         h.Fit('f_corr'+str(k), 'LQR+')
-        #         canvas['dt_corr'][k] = rt.TCanvas('c_dt_corr'+str(k), 'c_dt_corr'+str(k), 800, 600)
-        #         h.DrawCopy('E1')
-        #         f.SetLineColor(2)
-        #         f.DrawCopy('SAMEL')
-        #
-        #         canvas['dt_corr'][k].Update()
-        #         canvas['dt_corr'][k].SaveAs(out_dir + '/TimeResolution_OneShot_ch{:02d}.png'.format(k))
+    print table
+    table_txt = table.get_string()
+    with open(headout_dir+'/SummaryTable.txt','w') as file:
+        file.write(table_txt)
