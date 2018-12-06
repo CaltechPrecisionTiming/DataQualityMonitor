@@ -42,8 +42,6 @@ class Config:
             l = l[0:-1].split()
             if '-->Print' in l[0]:
                 self.plots = l[1:]
-                print "Plots expected:"
-                print self.plots
             elif '-->XYcenter' in l[0]:
                 self.xy_center = [float(l[1]), float(l[2]), float(l[3])]
             elif '-->TracksCleaning' in l[0]:
@@ -230,7 +228,7 @@ if __name__ == '__main__':
     if os.path.isdir(save_loc):
         if save_loc[-1] != '/':
             save_loc += '/'
-        out_dir = save_loc + 'Run' + str(flag) + '_Analysis'
+        out_dir = save_loc + 'Run' + str(flag) + '_' + os.path.basename(args.config[:-4])
         if os.path.exists(out_dir):
             shutil.rmtree(out_dir)
         os.mkdir(out_dir)
@@ -619,6 +617,8 @@ if __name__ == '__main__':
             continue
         print '---> Channel', k
 
+        results = []
+
         best_result[k] = Bauble()
         best_result[k].dT = [-1, -1]
         best_result[k].var = [None, None]
@@ -643,8 +643,12 @@ if __name__ == '__main__':
 
             if 'TimeRes2DAmp' in configurations.plots:
                 for kk in configurations.ch_ordered:
-                    if configurations.channel[kk]['type'] == 'amp'+str(k):
+                    if 'amp'+str(k) in configurations.channel[kk]['type']:
                         selection += ' && ' + configurations.channel[kk]['sel']
+
+            if chain.GetEntries(selection) < 5:
+                print 'Not enought stat ({})'.format(chain.GetEntries(selection))
+                continue
 
             '''=========================== Raw time resolution ==========================='''
             if 'TimeResRaw' in configurations.plots:
@@ -688,11 +692,10 @@ if __name__ == '__main__':
                 b = [var_dT, conf['x_rot'], conf['y_rot']]
                 if 'TimeRes2DAmp' in configurations.plots:
                     for kk in configurations.ch_ordered:
-                        if configurations.channel[kk]['type'] == 'amp'+str(k):
+                        if 'amp'+str(k) in configurations.channel[kk]['type']:
                             b += ['amp[{}]'.format(kk)]
                     if len(b) == 3:
-                        print 'Amplitude channel not found'
-                        continue
+                        b += ['amp[{}]'.format(k)]
 
                 data_raw = tree2array(chain, b, selection).view(np.recarray)
                 data = np.zeros((data_raw.shape[0],3))
@@ -816,12 +819,13 @@ if __name__ == '__main__':
 
                 avg_time_res = np.average(ResRaw[:,0], weights=1./np.square(ResRaw[:,1]))
                 d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResRaw[:,1])))
+                results.append([avg_time_res, d_avg_time_res, v_time, v_ref, False])
                 if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
                     best_result[k].dT = [avg_time_res, d_avg_time_res]
                     best_result[k].var = [v_time, v_ref]
                     best_result[k].AmpCorr = False
 
-                msg = 'Average time resolution: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
+                msg = 'Avg raw resolution: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
                 print msg
                 l = rt.TLatex()
                 l.SetTextSize(0.04);
@@ -845,17 +849,25 @@ if __name__ == '__main__':
 
                     avg_time_res = np.average(ResAmp[:,0], weights=1./np.square(ResAmp[:,1]))
                     d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResAmp[:,1])))
+                    results.append([avg_time_res, d_avg_time_res, v_time, v_ref, True])
                     if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
                         best_result[k].dT = [avg_time_res, d_avg_time_res]
                         best_result[k].var = [v_time, v_ref]
                         best_result[k].AmpCorr = True
-                    msg = 'Average time resolution after Amp correction: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
+                    msg = 'Avg resolution after amp correction: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
                     print msg
                     l = rt.TLatex()
                     l.SetTextSize(0.04);
                     l.DrawLatexNDC(0.15, 0.89, msg.replace('+/-', '#pm'))
                     canvas['c_'+tag].Update()
                     canvas['c_'+tag].SaveAs(out_dir + '/TimeRes2DAmp_ch{:02d}.png'.format(k))
+
+        with open(headout_dir+'/TimeResolution_ch{}.txt'.format(k),'w') as file:
+            ln = '#avg_time_res, d_avg_time_res, var_time, var_ref, AmpCorrection\n'
+            file.write(ln)
+            for r in results:
+                ln = '{:.2f}  {:.2f}  {}  {}  {}\n'.format(r[0], r[1], r[2], r[3], r[4])
+                file.write(ln)
 
     print '\n\n======================= Summary =============================='
     table =  PrettyTable(['Ch', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
