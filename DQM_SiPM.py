@@ -472,7 +472,7 @@ if __name__ == '__main__':
                         y = h.GetYaxis().GetBinCenter(1) - h.GetYaxis().GetBinWidth(1)*0.51 + float(size[1])
                         nby = h.GetYaxis().FindBin(y)
 
-                        arr_h, pos_h = rootTH2_to_np(h, cut=0.2)
+                        arr_h, pos_h = rootTH2_to_np(h, cut=0.3)
                         # print arr_h
 
                         p_max = 0

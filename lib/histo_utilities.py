@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 std_color_list = [1, 2, 4, 8, 6, 28, 43, 7, 25]
 
 def quantile(a, p, weight=None, f=None):
+    if a.shape[0] == 0:
+        return None, None
     q = np.percentile(a, 100*p).astype(np.float64)
 
     if weight == None:
@@ -16,7 +18,8 @@ def quantile(a, p, weight=None, f=None):
     else:
         h = create_TH1D(a, binning=[None, np.percentile(a, 2), np.percentile(a, 98)], weights=weight)
         f_q = h.GetBinContent(h.FindBin(q))
-
+    if f_q == 0:
+        f_q = 1e-3
     sigma_q = 2*p*(1-p)/(a.shape[0]*f_q**2)
     return q, sigma_q
 
