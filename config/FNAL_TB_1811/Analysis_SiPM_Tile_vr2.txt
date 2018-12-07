@@ -1,13 +1,13 @@
 -->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight TimeResRaw TimeResRaw2D TimeRes2DAmp
 -->XYcenter-width: 15 25 10
 -->TracksCleaning: CutOnCh9 ntracks==1 chi2<5
--->Var_photek: gaus_mean IL_30 IL_50 IL_60 LP1_30 LP1_50 LP1_60 FL_30 FL_50 FL_60
+-->Var_photek: gaus_mean LP1_50 LP1_60 FL_50
 -->Var_amp: None
--->Var_time: LP2_10 LP2_20 LP2_30 LP2_40 LP2_50 LP2_60 LP2_50mV LP2_100mV LP2_150mV LP2_200mV LP2_250mV LP2_300mV LP2_350mV LP2_400mV LP2_450mV LP2_500mV LP2_550mV LP2_600mV LP2_650mV LP2_700mV LP1_10 LP1_20 LP1_30 LP1_40 LP1_50 LP1_60 LP1_50mV LP1_100mV LP1_150mV LP1_200mV LP1_250mV LP1_300mV LP1_350mV LP1_400mV LP1_450mV LP1_500mV LP1_550mV LP1_600mV LP1_650mV LP1_700mV IL_10 IL_20 IL_30 IL_40 IL_50 IL_60 IL_50mV IL_100mV IL_150mV IL_200mV IL_250mV IL_300mV IL_350mV IL_400mV IL_450mV IL_500mV IL_550mV IL_600mV IL_650mV IL_700mV FL_10 FL_20 FL_30 FL_40 FL_50 FL_60 FL_50mV FL_100mV FL_150mV FL_200mV FL_250mV FL_300mV FL_350mV FL_400mV FL_450mV FL_500mV FL_550mV FL_600mV FL_650mV FL_700mV
+-->Var_time: LP2_2 LP2_3 LP2_5 LP2_7 LP2_10 LP2_20 LP2_30 LP2_40 LP2_50 LP2_60 LP2_5mV LP2_10mV LP2_20mV LP2_30mV LP2_50mV LP2_100mV LP2_150mV LP2_200mV LP2_250mV LP2_300mV LP2_350mV LP2_400mV LP2_450mV LP2_500mV LP2_550mV LP2_600mV LP2_650mV LP2_700mV LP1_10 LP1_20 LP1_30 LP1_40 LP1_50 LP1_60 LP1_50mV LP1_100mV LP1_150mV LP1_200mV LP1_250mV LP1_300mV LP1_350mV LP1_400mV LP1_450mV LP1_500mV LP1_550mV LP1_600mV LP1_650mV LP1_700mV IL_10 IL_20 IL_30 IL_40 IL_50 IL_60 IL_50mV IL_100mV IL_150mV IL_200mV IL_250mV IL_300mV IL_350mV IL_400mV IL_450mV IL_500mV IL_550mV IL_600mV IL_650mV IL_700mV FL_10 FL_20 FL_30 FL_40 FL_50 FL_60 FL_50mV FL_100mV FL_150mV FL_200mV FL_250mV FL_300mV FL_350mV FL_400mV FL_450mV FL_500mV FL_550mV FL_600mV FL_650mV FL_700mV
 ch_num   idx_time  idx_dut   idx_ref         type  cut  min    max  shape
 9               1        0        -1       photek    I    0    200   None
 #14              1        0         9         time    A  600   1200    8x8
-15              1        0         9         time    A  600   1200   11x7
+#15              1        0         9         time    A  600   1200   11x7
 18              2       -1        -1       photek    I    0    200   None
 24              2        0        18   time&amp14    A  200    800    8x8
 25              2        0        18   time&amp15    A  200    800   11x7

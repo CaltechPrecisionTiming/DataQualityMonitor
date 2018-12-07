@@ -156,7 +156,7 @@ def circle_filter(h_arr, cx, cy, rx, ry):
 
     return p/(np.pi*rx*ry)
 
-def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas):
+def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas, save_single_bins=True):
     q_up, e_up = quantile(1000*dt, 0.15)
     q_dwn, e_dwn = quantile(1000*dt, 0.85)
     disp_est = 0.5*np.abs(q_up - q_dwn)
@@ -168,23 +168,23 @@ def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas):
     ig = h2D.GetBin(ix, iy)
     h2D.SetBinContent(ig, disp_est)
     h2D.SetBinError(ig, disp_unc)
+    if save_single_bins:
+        median = np.percentile(dt, 50)
+        width = np.abs(np.percentile(dt, 10) - np.percentile(dt, 90))
+        tag = tagin+'_'+str(k)+'_'+str(ib)
+        h = create_TH1D(dt, 'h_'+tag,
+                        title_tag + ' time resolution - x #in [{:.1f}, {:.1f}], y #in [{:.1f}, {:.1f}]'.format(xd, xu, yd, yu),
+                        binning = [ None, median-2*width, median+2*width],
+                        axis_title = [var_dT + ' [ns]', 'Events'])
+        canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
+        h.Fit('gaus', 'LQR','', np.percentile(dt, 20), np.percentile(dt, 98))
+        h = h.DrawCopy('LE')
 
-    median = np.percentile(dt, 50)
-    width = np.abs(np.percentile(dt, 10) - np.percentile(dt, 90))
-    tag = tagin+'_'+str(k)+'_'+str(ib)
-    h = create_TH1D(dt, 'h_'+tag,
-                    title_tag + ' time resolution - x #in [{:.1f}, {:.1f}], y #in [{:.1f}, {:.1f}]'.format(xd, xu, yd, yu),
-                    binning = [ None, median-2*width, median+2*width],
-                    axis_title = [var_dT + ' [ns]', 'Events'])
-    canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
-    h.Fit('gaus', 'LQR','', np.percentile(dt, 20), np.percentile(dt, 98))
-    h = h.DrawCopy('LE')
-
-    l = rt.TLatex()
-    l.SetTextSize(0.04);
-    l.DrawLatexNDC(0.15, 0.85, 'Unbiased dispersion: {:.1f} #pm {:.1f}'.format(disp_est, disp_unc))
-    canvas['c_'+tag].Update()
-    canvas['c_'+tag].SaveAs(out_dir + '/'+tagin+'_ch{:02d}/'.format(k)+tag+'.png')
+        l = rt.TLatex()
+        l.SetTextSize(0.04);
+        l.DrawLatexNDC(0.15, 0.85, 'Unbiased dispersion: {:.1f} #pm {:.1f}'.format(disp_est, disp_unc))
+        canvas['c_'+tag].Update()
+        canvas['c_'+tag].SaveAs(out_dir + '/'+tagin+'_ch{:02d}/'.format(k)+tag+'.png')
 
 if __name__ == '__main__':
     cebefo_style()
@@ -765,7 +765,8 @@ if __name__ == '__main__':
                                       h_2D_res_raw,
                                       ResRaw, 'TimeResRaw2D',
                                       'Raw',
-                                      canvas)
+                                      canvas,
+                                      not 'TimeRes2DAmp' in configurations.plots)
 
 
                     if 'TimeRes2DAmp' in configurations.plots:

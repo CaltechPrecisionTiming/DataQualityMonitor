@@ -156,6 +156,7 @@ if __name__ == '__main__':
     cebefo_style()
 
     rt.gErrorIgnoreLevel = 6000
+    rt.TGaxis.SetMaxDigits(3)
 
     args = parsing()
 

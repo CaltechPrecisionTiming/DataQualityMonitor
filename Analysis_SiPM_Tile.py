@@ -159,6 +159,9 @@ def circle_filter(h_arr, cx, cy, rx, ry):
 def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas):
     q_up, e_up = quantile(1000*dt, 0.15)
     q_dwn, e_dwn = quantile(1000*dt, 0.85)
+    if q_up == None or q_dwn == None:
+        print '[WARNING] Quantile estimation failed'
+        return
     disp_est = 0.5*np.abs(q_up - q_dwn)
     disp_unc = 0.5*np.hypot(e_up, e_dwn)
 
@@ -262,7 +265,8 @@ if __name__ == '__main__':
     canvas['wave'] = {}
     canvas['pos'] = {}
     canvas['pos_sel'] = {}
-    canvas['w_pos'] = {}
+    canvas['amp_w_pos'] = {}
+    canvas['int_w_pos'] = {}
     canvas['t_res_raw'] = {}
     canvas['space_corr'] = {}
     canvas['t_res_space'] = {}
@@ -575,28 +579,46 @@ if __name__ == '__main__':
 
 
             if 'PosWeight' in configurations.plots:
-                name = 'h_weight_pos_'+str(k)
-                title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '] weighted with channel {} selected event'.format(k)
+                h = rt.TH2D('h_amp_aux'+str(k), title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
+                chain.Project('h_amp_aux'+str(k), var, selection)
+
+                name = 'h_amp_weight_pos_'+str(k)
+                title = 'Average peak amplitude channel {} in selected event'.format(k)
                 h_w = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
                 h_w.SetXTitle('x [mm]')
                 h_w.SetYTitle('y [mm]')
                 h_w.SetZTitle('Average Amplitude [mV]')
 
-                h = rt.TH2D('h_amp_aux'+str(k), title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
-                chain.Project('h_amp_aux'+str(k), var, selection)
-
                 weights = '('+ selection +') * amp[' + str(k) + ']'
                 chain.Project(name, var, weights)
 
                 h_w.Divide(h)
-
                 h_w.GetZaxis().SetRangeUser(h_w.GetMinimum(10), h_w.GetMaximum())
 
-                canvas['w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
+                canvas['amp_w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
                 h_w.DrawCopy('colz')
                 Set_2D_colz_graphics()
-                canvas['w_pos'][k].Update()
-                canvas['w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
+                canvas['amp_w_pos'][k].Update()
+                canvas['amp_w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
+
+                name = 'h_int_weight_pos_'+str(k)
+                title = 'Average integral channel {} in selected event'.format(k)
+                h_w = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
+                h_w.SetXTitle('x [mm]')
+                h_w.SetYTitle('y [mm]')
+                h_w.SetZTitle('Average integral [pC]')
+
+                weights = '('+ selection +') * -integral[' + str(k) + ']'
+                chain.Project(name, var, weights)
+
+                h_w.Divide(h)
+                h_w.GetZaxis().SetRangeUser(h_w.GetMinimum(0.5), h_w.GetMaximum())
+
+                canvas['int_w_pos'][k] = rt.TCanvas('c_int_w_pos_'+str(k), 'c_int_w_pos_'+str(k), 800, 600)
+                h_w.DrawCopy('colz')
+                Set_2D_colz_graphics()
+                canvas['int_w_pos'][k].Update()
+                canvas['int_w_pos'][k].SaveAs(out_dir + '/PositionXY_int_weight_ch{:02d}.png'.format(k))
 
         '''=========================== End Selections ==========================='''
         conf['sel'] =  selection
@@ -617,6 +639,9 @@ if __name__ == '__main__':
         print '---> Channel', k
 
         results = []
+        file_results = open(headout_dir+'/TimeResolution_ch{}.txt'.format(k),'w')
+        ln = '#avg_time_res, d_avg_time_res, var_time, var_ref, AmpCorrection\n'
+        file_results.write(ln)
 
         best_result[k] = Bauble()
         best_result[k].dT = [-1, -1]
@@ -820,6 +845,8 @@ if __name__ == '__main__':
                 avg_time_res = np.average(ResRaw[:,0], weights=1./np.square(ResRaw[:,1]))
                 d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResRaw[:,1])))
                 results.append([avg_time_res, d_avg_time_res, v_time, v_ref, False])
+                ln = '{:.2f}  {:.2f}  {}  {}  {}\n'.format(avg_time_res, d_avg_time_res, v_time, v_ref, False)
+                file_results.write(ln)
                 if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
                     best_result[k].dT = [avg_time_res, d_avg_time_res]
                     best_result[k].var = [v_time, v_ref]
@@ -850,6 +877,8 @@ if __name__ == '__main__':
                     avg_time_res = np.average(ResAmp[:,0], weights=1./np.square(ResAmp[:,1]))
                     d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResAmp[:,1])))
                     results.append([avg_time_res, d_avg_time_res, v_time, v_ref, True])
+                    ln = '{:.2f}  {:.2f}  {}  {}  {}\n'.format(avg_time_res, d_avg_time_res, v_time, v_ref, True)
+                    file_results.write(ln)
                     if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
                         best_result[k].dT = [avg_time_res, d_avg_time_res]
                         best_result[k].var = [v_time, v_ref]
@@ -862,12 +891,7 @@ if __name__ == '__main__':
                     canvas['c_'+tag].Update()
                     canvas['c_'+tag].SaveAs(out_dir + '/TimeRes2DAmp_ch{:02d}.png'.format(k))
 
-        with open(headout_dir+'/TimeResolution_ch{}.txt'.format(k),'w') as file:
-            ln = '#avg_time_res, d_avg_time_res, var_time, var_ref, AmpCorrection\n'
-            file.write(ln)
-            for r in results:
-                ln = '{:.2f}  {:.2f}  {}  {}  {}\n'.format(r[0], r[1], r[2], r[3], r[4])
-                file.write(ln)
+        file_results.close()
 
     print '\n\n======================= Summary =============================='
     table =  PrettyTable(['Ch', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])

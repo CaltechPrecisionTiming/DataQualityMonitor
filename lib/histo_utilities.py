@@ -57,21 +57,35 @@ def create_TH1D(x, name='h', title=None, binning=[None, None, None], weights=Non
 def create_TH2D(sample, name='h', title=None, binning=[None, None, None, None, None, None], weights=None, axis_title = ['','']):
     if title is None:
         title = name
-    if binning[1] is None:
-        binning[1] = min(sample[:,0])
-    if binning[2] is None:
-        binning[2] = max(sample[:,0])
-    if binning[0] is None:
-        bin_w = 4*(np.percentile(sample[:,0],75) - np.percentile(sample[:,0],25))/(len(sample[:,0]))**(1./3.)
-        binning[0] = int((binning[2] - binning[1])/bin_w)
+    if (sample.shape[0] == 0):
+        for i in range(len(binning)):
+            if binning[i] == None:
+                binning[i] = 1
+    else:
+        if binning[1] is None:
+            binning[1] = min(sample[:,0])
+        if binning[2] is None:
+            binning[2] = max(sample[:,0])
+        if binning[0] is None:
+            bin_w = 4*(np.percentile(sample[:,0],75) - np.percentile(sample[:,0],25))/(len(sample[:,0]))**(1./3.)
+            if bin_w == 0:
+                bin_w = 0.5*np.std(sample[:,0])
+            if bin_w == 0:
+                bin_w = 1
 
-    if binning[4] is None:
-        binning[4] = min(sample[:,1])
-    if binning[5] == None:
-        binning[5] = max(sample[:,1])
-    if binning[3] == None:
-        bin_w = 4*(np.percentile(sample[:,1],75) - np.percentile(sample[:,1],25))/(len(sample[:,1]))**(1./3.)
-        binning[3] = int((binning[5] - binning[4])/bin_w)
+            binning[0] = int((binning[2] - binning[1])/bin_w)
+
+        if binning[4] is None:
+            binning[4] = min(sample[:,1])
+        if binning[5] == None:
+            binning[5] = max(sample[:,1])
+        if binning[3] == None:
+            bin_w = 4*(np.percentile(sample[:,1],75) - np.percentile(sample[:,1],25))/(len(sample[:,1]))**(1./3.)
+            if bin_w == 0:
+                bin_w = 0.5*np.std(sample[:,1])
+            if bin_w == 0:
+                bin_w = 1
+            binning[3] = int((binning[5] - binning[4])/bin_w)
 
     h = rt.TH2D(name, title, binning[0], binning[1], binning[2], binning[3], binning[4], binning[5])
     rtnp.fill_hist(h, sample, weights=weights)
