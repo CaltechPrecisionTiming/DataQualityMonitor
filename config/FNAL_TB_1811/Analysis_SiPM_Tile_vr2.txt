@@ -1,5 +1,6 @@
 -->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight TimeResRaw TimeResRaw2D TimeRes2DAmp
 -->XYcenter-width: 15 25 10
+-->SpaceBinSize: 1.
 -->TracksCleaning: CutOnCh9 ntracks==1 chi2<5
 -->Var_photek: gaus_mean LP1_50 LP1_60 FL_50
 -->Var_amp: None

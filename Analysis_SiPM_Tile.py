@@ -44,6 +44,8 @@ class Config:
                 self.plots = l[1:]
             elif '-->XYcenter' in l[0]:
                 self.xy_center = [float(l[1]), float(l[2]), float(l[3])]
+            elif '-->SpaceBinSize' in l[0]:
+                self.space_bin_size = float(l[1])
             elif '-->TracksCleaning' in l[0]:
                 self.TracksCleaning = {}
                 cuts = ''
@@ -156,7 +158,7 @@ def circle_filter(h_arr, cx, cy, rx, ry):
 
     return p/(np.pi*rx*ry)
 
-def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas):
+def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas, save_canvas=True):
     q_up, e_up = quantile(1000*dt, 0.15)
     q_dwn, e_dwn = quantile(1000*dt, 0.85)
     if q_up == None or q_dwn == None:
@@ -172,22 +174,23 @@ def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas):
     h2D.SetBinContent(ig, disp_est)
     h2D.SetBinError(ig, disp_unc)
 
-    median = np.percentile(dt, 50)
-    width = np.abs(np.percentile(dt, 10) - np.percentile(dt, 90))
-    tag = tagin+'_'+str(k)+'_'+str(ib)
-    h = create_TH1D(dt, 'h_'+tag,
-                    title_tag + ' time resolution - x #in [{:.1f}, {:.1f}], y #in [{:.1f}, {:.1f}]'.format(xd, xu, yd, yu),
-                    binning = [ None, median-2*width, median+2*width],
-                    axis_title = [var_dT + ' [ns]', 'Events'])
-    canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
-    h.Fit('gaus', 'LQR','', np.percentile(dt, 20), np.percentile(dt, 98))
-    h = h.DrawCopy('LE')
+    if save_canvas:
+        median = np.percentile(dt, 50)
+        width = np.abs(np.percentile(dt, 10) - np.percentile(dt, 90))
+        tag = tagin+'_'+str(k)+'_'+str(ib)
+        h = create_TH1D(dt, 'h_'+tag,
+                        title_tag + ' time resolution - x #in [{:.1f}, {:.1f}], y #in [{:.1f}, {:.1f}]'.format(xd, xu, yd, yu),
+                        binning = [ None, median-2*width, median+2*width],
+                        axis_title = [var_dT + ' [ns]', 'Events'])
+        canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
+        h.Fit('gaus', 'LQR','', np.percentile(dt, 20), np.percentile(dt, 98))
+        h = h.DrawCopy('LE')
 
-    l = rt.TLatex()
-    l.SetTextSize(0.04);
-    l.DrawLatexNDC(0.15, 0.85, 'Unbiased dispersion: {:.1f} #pm {:.1f}'.format(disp_est, disp_unc))
-    canvas['c_'+tag].Update()
-    canvas['c_'+tag].SaveAs(out_dir + '/'+tagin+'_ch{:02d}/'.format(k)+tag+'.png')
+        l = rt.TLatex()
+        l.SetTextSize(0.04);
+        l.DrawLatexNDC(0.15, 0.85, 'Unbiased dispersion: {:.1f} #pm {:.1f}'.format(disp_est, disp_unc))
+        canvas['c_'+tag].Update()
+        canvas['c_'+tag].SaveAs(out_dir + '/'+tagin+'_ch{:02d}/'.format(k)+tag+'.png')
 
 if __name__ == '__main__':
     cebefo_style()
@@ -579,6 +582,7 @@ if __name__ == '__main__':
 
 
             if 'PosWeight' in configurations.plots:
+                ''' -------------Avg amp-----------'''
                 h = rt.TH2D('h_amp_aux'+str(k), title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
                 chain.Project('h_amp_aux'+str(k), var, selection)
 
@@ -594,13 +598,60 @@ if __name__ == '__main__':
 
                 h_w.Divide(h)
                 h_w.GetZaxis().SetRangeUser(h_w.GetMinimum(10), h_w.GetMaximum())
+                h_w.SetStats(0)
 
                 canvas['amp_w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
                 h_w.DrawCopy('colz')
                 Set_2D_colz_graphics()
+                if not conf['SiPM'] == 'None':
+                    size = conf['SiPM'].split('x')
+
+                    x = h_w.GetXaxis().GetBinCenter(1) - h_w.GetXaxis().GetBinWidth(1)*0.51 + float(size[0])
+                    nbx = h_w.GetXaxis().FindBin(x)
+
+                    y = h_w.GetYaxis().GetBinCenter(1) - h_w.GetYaxis().GetBinWidth(1)*0.51 + float(size[1])
+                    nby = h_w.GetYaxis().FindBin(y)
+
+                    arr_h, pos_h = rootTH2_to_np(h_w, cut=100)
+                    # print arr_h
+
+                    p_max = 0
+                    idx_max = [0, 0]
+                    for iy in range(0, arr_h.shape[0]-nby):
+                        for ix in range(0, arr_h.shape[1]-nbx):
+                            p = np.sum(arr_h[iy:iy+nby, ix:ix+nbx])
+
+                            if p > p_max:
+                                p_max = p
+                                idx_max = [iy, ix]
+
+                    avg_prob = p_max/(nbx*nby)
+                    iy, ix = idx_max
+                    x_start = h.GetXaxis().GetBinCenter(ix+1) - 0.5*h.GetXaxis().GetBinWidth(ix+1)
+                    x_stop = h.GetXaxis().GetBinCenter(ix+nbx) + 0.5*h.GetXaxis().GetBinWidth(ix+nbx)
+                    y_start = h.GetYaxis().GetBinCenter(iy+1) - 0.5*h.GetYaxis().GetBinWidth(iy+1)
+                    y_stop = h.GetYaxis().GetBinCenter(iy+nby) + 0.5*h.GetYaxis().GetBinWidth(iy+nby)
+
+                    line.SetLineStyle(9)
+                    line.SetLineColor(46)
+                    line.SetLineWidth(2)
+                    line.DrawLine(x_start, y_start, x_stop, y_start)
+                    line.DrawLine(x_start, y_stop, x_stop, y_stop)
+                    line.DrawLine(x_start, y_start, x_start, y_stop)
+                    line.DrawLine(x_stop, y_start, x_stop, y_stop)
+                    l = rt.TLatex()
+                    l.SetTextColor(46)
+                    l.SetTextSize(0.02)
+                    l.DrawLatex(x_start, y_stop, 'Avg amp {:.0f} mV'.format(avg_prob))
+
+                    conf['SiPM_sel'] = {}
+                    conf['SiPM_sel']['limits'] = [x_start, x_stop, y_start, y_stop]
+                    conf['SiPM_sel']['cut'] = '({y} < {h} && {y} > {l}'.format(y=conf['y_rot'], l=y_start, h=y_stop)
+                    conf['SiPM_sel']['cut'] += ' && {x} < {h} && {x} > {l})'.format(x=conf['x_rot'], l=x_start, h=x_stop)
                 canvas['amp_w_pos'][k].Update()
                 canvas['amp_w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
 
+                ''' -------------Avg integral-----------'''
                 name = 'h_int_weight_pos_'+str(k)
                 title = 'Average integral channel {} in selected event'.format(k)
                 h_w = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
@@ -612,8 +663,8 @@ if __name__ == '__main__':
                 chain.Project(name, var, weights)
 
                 h_w.Divide(h)
-                h_w.GetZaxis().SetRangeUser(h_w.GetMinimum(0.5), h_w.GetMaximum())
-
+                h_w.GetZaxis().SetRangeUser(h_w.GetMaximum()*0.8, h_w.GetMaximum())
+                h_w.SetStats(0)
                 canvas['int_w_pos'][k] = rt.TCanvas('c_int_w_pos_'+str(k), 'c_int_w_pos_'+str(k), 800, 600)
                 h_w.DrawCopy('colz')
                 Set_2D_colz_graphics()
@@ -668,7 +719,17 @@ if __name__ == '__main__':
             if 'TimeRes2DAmp' in configurations.plots:
                 for kk in configurations.ch_ordered:
                     if 'amp'+str(k) in configurations.channel[kk]['type']:
+                        conf['amp_channel'] = kk
                         selection += ' && ' + configurations.channel[kk]['sel']
+
+                        ''' ---- Removing SiPM border ----'''
+                        x1, x2, y1, y2 = configurations.channel[kk]['SiPM_sel']['limits']
+                        s1 = '{y} < {y2}+{d} && {y} > {y1}-{d} && {x} < {x2}+{d} && {x} > {x1}-{d}'
+                        s2 = '{y} < {y2}-{d} && {y} > {y1}+{d} && {x} < {x2}-{d} && {x} > {x1}+{d}'
+                        s = '!({} && !({}))'.format(s1, s2)
+                        # s = '!({})'.format(s1)
+                        # selection += ' && ' + s.format(x=conf['x_rot'], y = conf['y_rot'], d=0.25, x1=x1, x2=x2, y1=y1, y2=y2)
+                        # selection += ' && ' + configurations.channel[kk]['SiPM_sel']['cut']
 
             if chain.GetEntries(selection) < 5:
                 print 'Not enought stat ({})'.format(chain.GetEntries(selection))
@@ -735,7 +796,7 @@ if __name__ == '__main__':
                     print 'Empty delta'
                     continue
 
-                bin_width = 1.
+                bin_width = configurations.space_bin_size
                 lim = np.array(conf['space_sel']['limits']).astype(np.float)
                 size = np.array(conf['shape'].split('x')).astype(np.float)
 
@@ -782,7 +843,7 @@ if __name__ == '__main__':
                     sely = np.logical_and(data[:,2]>yd, data[:,2]<yu)
                     sel = np.logical_and(selx, sely)
                     if np.sum(sel) < 10:
-                        print '[WARNING] Low stat in ch', k, 'pos [{:.1f}, {:.1f}, {:.1f}, {:.1f}]'.format(xd, xu, yd, yu)
+                        continue
                     aux_d = data[sel]
                     dt = aux_d[:,0]
 
@@ -790,7 +851,8 @@ if __name__ == '__main__':
                                       h_2D_res_raw,
                                       ResRaw, 'TimeResRaw2D',
                                       'Raw',
-                                      canvas)
+                                      canvas,
+                                      not 'TimeRes2DAmp' in configurations.plots)
 
 
                     if 'TimeRes2DAmp' in configurations.plots:
@@ -865,15 +927,22 @@ if __name__ == '__main__':
                     tag = 'TimeRes2DAmp_ch{:02d}'.format(k)
                     canvas['c_'+tag] = rt.TCanvas('c_'+tag, 'c_'+tag, 800, 600)
                     Set_2D_colz_graphics()
-                    h_2D_res_amp.GetZaxis().SetRangeUser(0.9*np.min(ResAmp[:,0]), 1.1*np.max(ResAmp[:,0]))
                     h_2D_res_amp.SetStats(0)
                     h_2D_res_amp.SetYTitle('y [mm]')
                     h_2D_res_amp.SetXTitle('x [mm]')
                     h_2D_res_amp.SetZTitle(var_dT+' [ps]')
-                    h_2D_res_amp.DrawCopy('colz')
+                    h_2D_res_amp.Draw('colz')
                     rt.gStyle.SetPaintTextFormat(".1f");
                     h_2D_res_amp.DrawCopy('TEXT SAME ERROR')
 
+                    median = np.percentile(ResAmp[:, 0], 50)
+                    width = np.percentile(ResAmp[:, 0], 90) - np.percentile(ResAmp[:, 0], 10)
+                    sel = np.logical_and(ResAmp[:, 0] < median+2*width, ResAmp[:, 0] > median-2*width)
+                    if np.sum(np.logical_not(sel)):
+                        print 'Discarting outlayers'
+                        print ResAmp[np.logical_not(sel),0]
+                    ResAmp = ResAmp[sel]
+                    h_2D_res_amp.GetZaxis().SetRangeUser(0.9*np.min(ResAmp[:,0]), 1.1*np.max(ResAmp[:,0]))
                     avg_time_res = np.average(ResAmp[:,0], weights=1./np.square(ResAmp[:,1]))
                     d_avg_time_res = 1./np.sqrt(np.sum(1./np.square(ResAmp[:,1])))
                     results.append([avg_time_res, d_avg_time_res, v_time, v_ref, True])
@@ -888,6 +957,17 @@ if __name__ == '__main__':
                     l = rt.TLatex()
                     l.SetTextSize(0.04);
                     l.DrawLatexNDC(0.15, 0.89, msg.replace('+/-', '#pm'))
+                    if 'SiPM_sel' in conf.keys():
+                        x_start, x_stop, y_start, y_stop = conf ['SiPM_sel']['limits']
+                    elif 'amp_channel' in conf.keys():
+                        x_start, x_stop, y_start, y_stop = configurations.channel[conf['amp_channel']]['SiPM_sel']['limits']
+                    line.SetLineStyle(9)
+                    line.SetLineColor(46)
+                    line.SetLineWidth(2)
+                    line.DrawLine(x_start, y_start, x_stop, y_start)
+                    line.DrawLine(x_start, y_stop, x_stop, y_stop)
+                    line.DrawLine(x_start, y_start, x_start, y_stop)
+                    line.DrawLine(x_stop, y_start, x_stop, y_stop)
                     canvas['c_'+tag].Update()
                     canvas['c_'+tag].SaveAs(out_dir + '/TimeRes2DAmp_ch{:02d}.png'.format(k))
 

@@ -39,9 +39,9 @@ def cebefo_style():
     gStyle.SetPadBottomMargin(.12);
 
     gStyle.SetTitleSize(.05,"Z");
-    gStyle.SetTitleOffset(1.8,"Z");
+    gStyle.SetTitleOffset(1.1,"Z");
     #gStyle.SetLabelOffset(0.008,"Z");
-    gStyle.SetLabelSize(0.06,"Z");
+    gStyle.SetLabelSize(0.05,"Z");
     #gStyle.SetLabelFont(42,"Z");
 
     # gStyle.SetLegendTextSize(0.04);
@@ -160,4 +160,4 @@ def cebefo_style():
     #gSystem.ProcessEvents();
 
 def Set_2D_colz_graphics():
-    rt.gPad.SetRightMargin(0.18)
+    rt.gPad.SetRightMargin(0.16)
