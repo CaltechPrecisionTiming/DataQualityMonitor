@@ -627,6 +627,8 @@ if __name__ == '__main__':
 
                     avg_prob = p_max/(nbx*nby)
                     iy, ix = idx_max
+                    if k == 24:
+                        ix -= 2
                     x_start = h.GetXaxis().GetBinCenter(ix+1) - 0.5*h.GetXaxis().GetBinWidth(ix+1)
                     x_stop = h.GetXaxis().GetBinCenter(ix+nbx) + 0.5*h.GetXaxis().GetBinWidth(ix+nbx)
                     y_start = h.GetYaxis().GetBinCenter(iy+1) - 0.5*h.GetYaxis().GetBinWidth(iy+1)
