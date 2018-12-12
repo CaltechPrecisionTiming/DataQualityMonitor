@@ -793,5 +793,8 @@ if __name__ == '__main__':
                 os.system('touch '+file)
             if not (int(f_aux) in np.loadtxt(file).astype(np.int)):
                 cmd = 'echo ' + f_aux + ' >> ' + file
-                print cmd
+                if aux > 0.3:
+                    print 'Run failed tracks consistency'
+                else:
+                    print 'Run passed tracks consistency'
                 os.system(cmd)

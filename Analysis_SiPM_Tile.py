@@ -318,7 +318,7 @@ if __name__ == '__main__':
         line.SetLineWidth(2)
         line.SetLineStyle(10)
 
-        selection = '1'
+        selection = '(amp[{nch}] != 0 && integral[{nch}] != 0)'.format(nch=k)
 
         '''=========================== Amplitude ==========================='''
         if 'Amp' in configurations.plots:
@@ -582,10 +582,10 @@ if __name__ == '__main__':
 
 
             if 'PosWeight' in configurations.plots:
-                ''' -------------Avg amp-----------'''
                 h = rt.TH2D('h_amp_aux'+str(k), title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
                 chain.Project('h_amp_aux'+str(k), var, selection)
 
+                ''' -------------Avg amp-----------'''
                 name = 'h_amp_weight_pos_'+str(k)
                 title = 'Average peak amplitude channel {} in selected event'.format(k)
                 h_w = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
@@ -665,13 +665,48 @@ if __name__ == '__main__':
                 chain.Project(name, var, weights)
 
                 h_w.Divide(h)
-                h_w.GetZaxis().SetRangeUser(h_w.GetMaximum()*0.8, h_w.GetMaximum())
+                arr, pos = rootTH2_to_np(h_w)
+                arr = arr[arr!=0]
+                h_w.GetZaxis().SetRangeUser(np.percentile(arr,10), np.percentile(arr,99))
                 h_w.SetStats(0)
                 canvas['int_w_pos'][k] = rt.TCanvas('c_int_w_pos_'+str(k), 'c_int_w_pos_'+str(k), 800, 600)
                 h_w.DrawCopy('colz')
                 Set_2D_colz_graphics()
                 canvas['int_w_pos'][k].Update()
                 canvas['int_w_pos'][k].SaveAs(out_dir + '/PositionXY_int_weight_ch{:02d}.png'.format(k))
+
+                ''' -------------Avg risetime-----------'''
+                name = 'h_risetime_weight_pos_'+str(k)
+                title = 'Average risetime channel {} in selected event'.format(k)
+                h_w = rt.TH2D(name, title, N_bins[0], -width+dx, width+dx, N_bins[1], -width+dy, width+dy)
+                h_w.SetXTitle('x [mm]')
+                h_w.SetYTitle('y [mm]')
+                h_w.SetZTitle('Average risetime [mV/ns]')
+
+                weights = '('+ selection +') * -risetime[' + str(k) + ']'
+                chain.Project(name, var, weights)
+
+                h_w.Divide(h)
+                arr, pos = rootTH2_to_np(h_w)
+                arr = arr[arr!=0]
+                h_w.GetZaxis().SetRangeUser(np.percentile(arr,10), np.percentile(arr,99))
+                h_w.SetStats(0)
+                canvas['int_w_pos'][k] = rt.TCanvas('c_risetime_w_pos_'+str(k), 'c_risetime_w_pos_'+str(k), 800, 600)
+                h_w.DrawCopy('colz')
+                Set_2D_colz_graphics()
+                if not conf['SiPM'] == 'None':
+                    x_start, x_stop, y_start, y_stop = conf['SiPM_sel']['limits']
+
+                    line.SetLineStyle(9)
+                    line.SetLineColor(46)
+                    line.SetLineWidth(2)
+                    line.DrawLine(x_start, y_start, x_stop, y_start)
+                    line.DrawLine(x_start, y_stop, x_stop, y_stop)
+                    line.DrawLine(x_start, y_start, x_start, y_stop)
+                    line.DrawLine(x_stop, y_start, x_stop, y_stop)
+
+                canvas['int_w_pos'][k].Update()
+                canvas['int_w_pos'][k].SaveAs(out_dir + '/PositionXY_risetime_weight_ch{:02d}.png'.format(k))
 
         '''=========================== End Selections ==========================='''
         conf['sel'] =  selection
@@ -730,7 +765,8 @@ if __name__ == '__main__':
                         s2 = '{y} < {y2}-{d} && {y} > {y1}+{d} && {x} < {x2}-{d} && {x} > {x1}+{d}'
                         s = '!({} && !({}))'.format(s1, s2)
                         # s = '!({})'.format(s1)
-                        # selection += ' && ' + s.format(x=conf['x_rot'], y = conf['y_rot'], d=0.25, x1=x1, x2=x2, y1=y1, y2=y2)
+                        selection += ' && ' + s.format(x=conf['x_rot'], y = conf['y_rot'], d=0.25, x1=x1, x2=x2, y1=y1, y2=y2)
+
                         # selection += ' && ' + configurations.channel[kk]['SiPM_sel']['cut']
 
             if chain.GetEntries(selection) < 5:
@@ -854,7 +890,7 @@ if __name__ == '__main__':
                                       ResRaw, 'TimeResRaw2D',
                                       'Raw',
                                       canvas,
-                                      not 'TimeRes2DAmp' in configurations.plots)
+                                      not ('TimeRes2DAmp' in configurations.plots))
 
 
                     if 'TimeRes2DAmp' in configurations.plots:

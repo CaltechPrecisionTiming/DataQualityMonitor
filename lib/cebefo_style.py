@@ -159,5 +159,8 @@ def cebefo_style():
 
     #gSystem.ProcessEvents();
 
-def Set_2D_colz_graphics():
-    rt.gPad.SetRightMargin(0.16)
+def Set_2D_colz_graphics(pad=None):
+    if pad == None:
+        rt.gPad.SetRightMargin(0.16)
+    else:
+        pad.SetRightMargin(0.16)

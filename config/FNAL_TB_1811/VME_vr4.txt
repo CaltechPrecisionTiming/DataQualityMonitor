@@ -5,8 +5,8 @@
 -->TracksConsistency: RefCh9 List
 ch_num   idx_time  idx_dut   idx_ref      var_ref  cut  min    max  shape
 9               1        0        -1    gaus_mean    I    0    200   None
-14              1        0        -1         None    A  600   1200   32x3
-15              1        0        -1         None    A  600   1200   32x3
+14              1        0        -1         None    A  600   1200   34x3
+15              1        0        -1         None    A  600   1200   34x3
 18              2       -1        -1    gaus_mean    I    0    200   None
-24              2        0        -1         None    A  200    800   32x3
-25              2        0        -1         None    A  200    800   32x3
+24              2        0        -1         None    A  200    800   34x3
+25              2        0        -1         None    A  200    800   34x3
