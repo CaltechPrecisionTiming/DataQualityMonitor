@@ -21,6 +21,9 @@ def parsing():
 
     parser.add_argument("-N", "--runs_interval", default=None, help="Runs to run", nargs='+')
 
+    parser.add_argument("--No_list", default=False, action='store_true', help="Enforce no bad/good run listing")
+
+
     args = parser.parse_args()
     return args
 
@@ -418,7 +421,7 @@ if __name__ == '__main__':
                 canvas['wave'][k].SetLogz()
             h.DrawCopy('colz')
             canvas['wave'][k].Update()
-            canvas['wave'][k].SaveAs(out_dir + '/Waveform_ch{:02d}.png'.format(k))
+            canvas['wave'][k].SaveAs(out_dir + '/WaveColor_ch{:02d}.png'.format(k))
 
         '''=========================== Track position ==========================='''
         if conf['idx_dut'] >= 0:
@@ -782,7 +785,7 @@ if __name__ == '__main__':
         if aux > 0.3:
             print '\n\n============ Run to be discarted!!!!! ===============\n\n'
 
-        if 'List' in configurations.TracksConsistency.keys() and flag[1:].isdigit():
+        if (not args.No_list) and ('List' in configurations.TracksConsistency.keys() and flag[1:].isdigit()):
             f_aux = flag[1:]
             file = args.save_loc
             if aux > 0.3:
