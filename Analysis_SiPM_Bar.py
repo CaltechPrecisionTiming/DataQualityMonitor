@@ -762,10 +762,10 @@ if __name__ == '__main__':
         ln = '#avg_time_res, d_avg_time_res, var_time, var_ref, Correction\n'
         file_results.write(ln)
 
-        best_result[k] = Bauble()
-        best_result[k].dT = [-1, -1]
-        best_result[k].var = [None, None]
-        best_result[k].Correction = None
+        best_result[N_bar] = Bauble()
+        best_result[N_bar].dT = [-1, -1]
+        best_result[N_bar].var = [None, None]
+        best_result[N_bar].Correction = None
 
         if confL['idx_ref'] != confR['idx_ref']:
             print 'Inconsistency in reference chnnel'
@@ -776,6 +776,7 @@ if __name__ == '__main__':
 
             time_var_chref = v_ref+'[{}]'.format(confL['idx_ref'])
             time_var = '0.5*({v}[{L}]+{v}[{R}])'.format(v=v_time, L=kL, R=kR)
+            spacelike_var = '({v}[{L}]-{v}[{R}])'.format(v=v_time, L=kL, R=kR)
 
             out_dir = '{}/{}_{}'.format(headout_dir, v_time, v_ref)
             if not os.path.exists(out_dir):
@@ -808,6 +809,51 @@ if __name__ == '__main__':
             if chain.GetEntries(selection) < 5:
                 print 'Not enought stat ({})'.format(chain.GetEntries(selection))
                 continue
+
+            '''=========================== Space like variable ==========================='''
+            if 'SpaceLike' in configurations.plots:
+                aux_x =  tree2array(chain, confL['x_rot'], selection).flatten()
+                aux_x -= np.min(aux_x)
+                aux_spacelike =  tree2array(chain, spacelike_var, selection).flatten()
+
+                inputs = np.column_stack((np.ones_like(aux_x), aux_x))
+                coeff, r, rank, s = np.linalg.lstsq(inputs, aux_spacelike, rcond=None)
+                b = [None, None, None, None, np.percentile(aux_spacelike, 1), np.percentile(aux_spacelike, 99)]
+                h_SLvsX = create_TH2D(np.column_stack((aux_x, aux_spacelike)),
+                                     'h_SLvsX', 'Bar '+str(N_bar),
+                                     binning=b,
+                                     axis_title=['x [mm]', spacelike_var + ' [ns]']
+                                     )
+                h_SLvsX.SetStats(0)
+                canvas['dt_vs_amp'][k] = rt.TCanvas('h_SLvsX'+str(N_bar), 'h_SLvsX'+str(N_bar), 800, 600)
+                h_SLvsX.DrawCopy('colz')
+                prof = h_SLvsX.ProfileX('prof_amp')
+                prof.SetLineColor(6)
+                prof.SetLineWidth(2)
+                prof.DrawCopy('SAMEE1')
+
+                f = rt.TF1('SLvsX_fit'+str(k),'[0]+[1]*x', np.min(aux_x), np.max(aux_x))
+                for j,a in enumerate(coeff):
+                    f.SetParameter(j, a)
+                f.SetLineColor(6)
+                f.SetLineStyle(9)
+                f.DrawCopy('SAMEL')
+
+                l = rt.TLatex()
+                l.SetTextSize(0.04)
+                v = 2./coeff[1]
+                length = -coeff[0]*v
+                v2 = -50./coeff[0]
+                v3 = np.sum(np.square(2*aux_x - 50.))/np.sum((2*aux_x - 50.)*aux_spacelike)
+                print 'v3 = {:.0f} mm/ns'.format(v3)
+                msg = 'v = {:.0f} ({:.0f}) mm/ns - l = {:.1f} mm'.format(v, v2, length)
+                print msg
+                print 'Refractive index = {:.2f}'.format(299.0/v3)
+                l.DrawLatexNDC(0.15, 0.89, msg)
+
+                canvas['dt_vs_amp'][k].Update()
+                canvas['dt_vs_amp'][k].SaveAs(out_dir + '/SLvsX_{}.png'.format(N_bar))
+
 
             '''=========================== Raw time resolution ==========================='''
             if 'TimeResRaw' in configurations.plots:
@@ -848,16 +894,17 @@ if __name__ == '__main__':
                     print 'Please specify a shape for both ends in order to print TimeResRaw2D'
                     continue
 
-                b = [var_dT, conf['x_rot'], conf['y_rot']]
+                b = [var_dT, confL['x_rot'], confL['y_rot']]
                 if 'TimeRes2DAmp' in configurations.plots:
                     b += ['amp[{}]'.format(confL['amp_ch']), 'amp[{}]'.format(confR['amp_ch'])]
+                b += [spacelike_var]
 
                 data_raw = tree2array(chain, b, selection).view(np.recarray)
                 data = np.zeros((data_raw.shape[0],3))
                 if 'TimeRes2DAmp' in configurations.plots:
-                    data = np.zeros((data_raw.shape[0],5))
+                    data = np.zeros((data_raw.shape[0],6))
                     for iev, d in enumerate(data_raw):
-                        data[iev] = [d[0][0], d[1], d[2], d[3], d[4]]
+                        data[iev] = [d[0][0], d[1], d[2], d[3], d[4], d[5]]
                 else:
                     for iev, d in enumerate(data_raw):
                         data[iev] = [d[0][0], d[1], d[2]]
@@ -928,12 +975,16 @@ if __name__ == '__main__':
 
                     if 'TimeRes2DAmp' in configurations.plots:
                         dt_sel = np.logical_and(dt>median-2*width, dt<median+2*width)
-                        amp = aux_d[:,3]/aux_d[:,4]
-                        inputs = np.column_stack((np.ones_like(amp), amp, amp**2))
+                        ampL = aux_d[:,3]
+                        ampR = aux_d[:,4]
+                        x_bar = aux_d[:,5]
+                        amp_ratio = ampL/ampR
+                        # inputs = np.column_stack((np.ones_like(amp_ratio), amp_ratio, amp_ratio**2))
+                        inputs = np.column_stack((np.ones_like(ampL), ampL, ampR, np.square(ampL), ampR*ampL, np.square(ampR)))
                         coeff, r, rank, s = np.linalg.lstsq(inputs[dt_sel], dt[dt_sel], rcond=None)
                         b = [None, None, None, None, median-2*width, median+2*width]
-                        h_TvsA = create_TH2D(np.column_stack((amp, dt)),
-                                             'h_TvsA', 'Channel '+str(k),
+                        h_TvsA = create_TH2D(np.column_stack((amp_ratio, dt)),
+                                             'h_TvsA', 'Bar '+str(N_bar),
                                              binning=b,
                                              axis_title=['Amp{} (L)/ Amp{} (R)'.format(kL, kR), var_dT + ' [ns]']
                                              )
@@ -944,12 +995,12 @@ if __name__ == '__main__':
                         prof.SetLineWidth(2)
                         prof.DrawCopy('SAMEE1')
 
-                        f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', np.min(amp), np.max(amp))
-                        for j,a in enumerate(coeff):
-                            f.SetParameter(j, a)
-                        f.SetLineColor(6)
-                        f.SetLineStyle(9)
-                        f.DrawCopy('SAMEL')
+                        # f = rt.TF1('amp_fit'+str(k),'[0]+[1]*x+[2]*x^2', np.min(amp), np.max(amp))
+                        # for j,a in enumerate(coeff):
+                        #     f.SetParameter(j, a)
+                        # f.SetLineColor(6)
+                        # f.SetLineStyle(9)
+                        # f.DrawCopy('SAMEL')
                         canvas['dt_vs_amp'][k].Update()
                         canvas['dt_vs_amp'][k].SaveAs(out_dir +  '/TimeRes2DAmp_bar{:02d}'.format(N_bar)+'/TvsAmp_{}.png'.format(ib))
 
@@ -980,10 +1031,10 @@ if __name__ == '__main__':
                 results.append([avg_time_res, d_avg_time_res, v_time, v_ref, False])
                 ln = '{:.2f}  {:.2f}  {}  {}  {}\n'.format(avg_time_res, d_avg_time_res, v_time, v_ref, False)
                 file_results.write(ln)
-                if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
-                    best_result[k].dT = [avg_time_res, d_avg_time_res]
-                    best_result[k].var = [v_time, v_ref]
-                    best_result[k].AmpCorr = False
+                if best_result[N_bar].dT[0] < 0 or  best_result[N_bar].dT[0] > avg_time_res:
+                    best_result[N_bar].dT = [avg_time_res, d_avg_time_res]
+                    best_result[N_bar].var = [v_time, v_ref]
+                    best_result[N_bar].AmpCorr = False
 
                 msg = 'Avg raw resolution: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
                 print msg
@@ -1019,33 +1070,22 @@ if __name__ == '__main__':
                     results.append([avg_time_res, d_avg_time_res, v_time, v_ref, True])
                     ln = '{:.2f}  {:.2f}  {}  {}  {}\n'.format(avg_time_res, d_avg_time_res, v_time, v_ref, True)
                     file_results.write(ln)
-                    if best_result[k].dT[0] < 0 or  best_result[k].dT[0] > avg_time_res:
-                        best_result[k].dT = [avg_time_res, d_avg_time_res]
-                        best_result[k].var = [v_time, v_ref]
-                        best_result[k].AmpCorr = True
+                    if best_result[N_bar].dT[0] < 0 or  best_result[N_bar].dT[0] > avg_time_res:
+                        best_result[N_bar].dT = [avg_time_res, d_avg_time_res]
+                        best_result[N_bar].var = [v_time, v_ref]
+                        best_result[N_bar].AmpCorr = True
                     msg = 'Avg resolution after amp correction: {:.1f} +/- {:.1f} ps'.format(avg_time_res, d_avg_time_res)
                     print msg
                     l = rt.TLatex()
                     l.SetTextSize(0.04);
                     l.DrawLatexNDC(0.15, 0.89, msg.replace('+/-', '#pm'))
-                    if 'SiPM_sel' in conf.keys():
-                        x_start, x_stop, y_start, y_stop = conf ['SiPM_sel']['limits']
-                    elif 'amp_channel' in conf.keys():
-                        x_start, x_stop, y_start, y_stop = configurations.channel[conf['amp_channel']]['SiPM_sel']['limits']
-                    line.SetLineStyle(9)
-                    line.SetLineColor(46)
-                    line.SetLineWidth(2)
-                    line.DrawLine(x_start, y_start, x_stop, y_start)
-                    line.DrawLine(x_start, y_stop, x_stop, y_stop)
-                    line.DrawLine(x_start, y_start, x_start, y_stop)
-                    line.DrawLine(x_stop, y_start, x_stop, y_stop)
                     canvas['c_'+tag].Update()
                     canvas['c_'+tag].SaveAs(out_dir + '/TimeRes2DAmp_bar{:02d}.png'.format(N_bar))
 
         file_results.close()
 
     print '\n\n======================= Summary =============================='
-    table =  PrettyTable(['Ch', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
+    table =  PrettyTable(['Bar', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
     for k, res in best_result.iteritems():
         row = [str(k), '{:.2f} +/- {:.2f}'.format(res.dT[0],res.dT[1])]
         row += [res.var[1], res.var[0], 'Yes' if res.AmpCorr else 'No']
