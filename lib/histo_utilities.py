@@ -27,6 +27,17 @@ def quantile(a, p, weight=None, f=None):
     sigma_q = np.sqrt(p*(1-p)/(a.shape[0]*f_q**2))
     return q, sigma_q
 
+def EstimateDispersion(aux):
+    q_up, e_up = quantile(aux, 0.15)
+    q_dwn, e_dwn = quantile(aux, 0.85)
+    if q_up == None or q_dwn == None:
+        print '[WARNING] Quantile estimation failed'
+        print aux.shape
+        print q_up, q_dwn
+    disp_est = 0.5*np.abs(q_up - q_dwn)
+    disp_unc = 0.5*np.hypot(e_up, e_dwn)
+    return disp_est, disp_unc
+
 def create_TH1D(x, name='h', title=None, binning=[None, None, None], weights=None, h2clone=None, axis_title = ['','']):
     if title is None:
         title = name
