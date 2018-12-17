@@ -6,7 +6,7 @@ from prettytable import PrettyTable
 
 import ROOT as rt
 from root_numpy import tree2array, tree2rec
-from lib.histo_utilities import create_TH1D, create_TH2D, quantile
+from lib.histo_utilities import create_TH1D, create_TH2D, quantile, rootTH2_to_np
 from lib.cebefo_style import cebefo_style, Set_2D_colz_graphics
 
 donotdelete = []
@@ -20,6 +20,7 @@ def parsing():
     parser.add_argument("-S", "--save_loc", type=str, default='./out_plots/', help="Saving location")
 
     parser.add_argument("-B", "--batch", default=True, action='store_false', help="Root batch mode")
+    parser.add_argument("-v", "--verbose", default=False, action='store_true', help="Verbose mode")
 
     parser.add_argument("-N", "--runs_interval", default=None, help="Runs to run", nargs='+')
 
@@ -129,34 +130,6 @@ def define_range_around_peak(h, perc = [0.4, 0.4], Range=[0.0, 99999.0]):
         n_up += 1
     x_up = h.GetBinLowEdge(n_up) + h.GetBinWidth(n_up)
     return x_low, x_up, n_pk
-
-def rootTH2_to_np(h, cut = None, Norm = False):
-    nx = h.GetNbinsX()
-    ny = h.GetNbinsY()
-
-    arr = np.zeros((ny, nx))
-    pos = np.zeros((ny, nx, 2))
-
-    for ix in range(nx):
-        for iy in range(ny):
-            x = h.GetXaxis().GetBinCenter( ix+1 );
-            y = h.GetYaxis().GetBinCenter( iy+1 );
-            z = h.GetBinContent(h.GetBin(ix+1, iy+1))
-
-            if cut == None:
-                arr[iy, ix] = z
-            else:
-                arr[iy, ix] = z if z > cut else 0
-            pos[iy, ix] = [x,y]
-    return arr, pos
-
-def circle_filter(h_arr, cx, cy, rx, ry):
-    p = 0
-    for i,j in itertools.product(np.arange(h_arr.shape[0]), np.arange(h_arr.shape[1])):
-        if (float(cx-j)/rx)**2 + (float(cy-i)/ry)**2 < 1:
-            p += h_arr[i-1, j-1]
-
-    return p/(np.pi*rx*ry)
 
 def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas, save_canvas=True):
     q_up, e_up = quantile(1000*dt, 0.15)
@@ -473,7 +446,7 @@ if __name__ == '__main__':
             dy = configurations.xy_center[1]
             dx = configurations.xy_center[0]
             width = configurations.xy_center[2]
-            N_bins = [100, 100]
+            N_bins = [70, 70]
             if 'PosRaw' in configurations.plots:
                 name = 'h_pos_'+str(k)
                 title = 'Track position at z_DUT[' + str(conf['idx_dut']) + '], for channel {} selected event'.format(k)
@@ -486,6 +459,7 @@ if __name__ == '__main__':
 
                 canvas['pos'][k] = rt.TCanvas('c_pos_'+str(k), 'c_pos_'+str(k), 800, 600)
                 h.DrawCopy('colz')
+                rt.gPad.SetRightMargin(0.15)
                 canvas['pos'][k].Update()
                 canvas['pos'][k].SaveAs(out_dir + '/PositionXY_raw_ch{:02d}.png'.format(k))
 
@@ -600,9 +574,12 @@ if __name__ == '__main__':
                 h_w.GetZaxis().SetRangeUser(h_w.GetMinimum(10), h_w.GetMaximum())
                 h_w.SetStats(0)
 
-                canvas['amp_w_pos'][k] = rt.TCanvas('c_w_pos_'+str(k), 'c_w_pos_'+str(k), 800, 600)
+                can = rt.TCanvas('c_w_pos', 'c_w_pos', 1200, 500)
+                if 'space_sel' in conf.keys():
+                    can.Divide(2,1)
+                    pad = can.cd(1)
                 h_w.DrawCopy('colz')
-                Set_2D_colz_graphics()
+                rt.gPad.SetRightMargin(0.15)
                 if not conf['SiPM'] == 'None':
                     size = conf['SiPM'].split('x')
 
@@ -613,8 +590,6 @@ if __name__ == '__main__':
                     nby = h_w.GetYaxis().FindBin(y)
 
                     arr_h, pos_h = rootTH2_to_np(h_w, cut=100)
-                    # print arr_h
-
                     p_max = 0
                     idx_max = [0, 0]
                     for iy in range(0, arr_h.shape[0]-nby):
@@ -627,8 +602,8 @@ if __name__ == '__main__':
 
                     avg_prob = p_max/(nbx*nby)
                     iy, ix = idx_max
-                    if k == 24:
-                        ix -= 2
+                    # if k == 24:
+                    #     ix -= 2
                     x_start = h.GetXaxis().GetBinCenter(ix+1) - 0.5*h.GetXaxis().GetBinWidth(ix+1)
                     x_stop = h.GetXaxis().GetBinCenter(ix+nbx) + 0.5*h.GetXaxis().GetBinWidth(ix+nbx)
                     y_start = h.GetYaxis().GetBinCenter(iy+1) - 0.5*h.GetYaxis().GetBinWidth(iy+1)
@@ -641,17 +616,50 @@ if __name__ == '__main__':
                     line.DrawLine(x_start, y_stop, x_stop, y_stop)
                     line.DrawLine(x_start, y_start, x_start, y_stop)
                     line.DrawLine(x_stop, y_start, x_stop, y_stop)
-                    l = rt.TLatex()
-                    l.SetTextColor(46)
-                    l.SetTextSize(0.02)
-                    l.DrawLatex(x_start, y_stop, 'Avg amp {:.0f} mV'.format(avg_prob))
 
                     conf['SiPM_sel'] = {}
                     conf['SiPM_sel']['limits'] = [x_start, x_stop, y_start, y_stop]
                     conf['SiPM_sel']['cut'] = '({y} < {h} && {y} > {l}'.format(y=conf['y_rot'], l=y_start, h=y_stop)
                     conf['SiPM_sel']['cut'] += ' && {x} < {h} && {x} > {l})'.format(x=conf['x_rot'], l=x_start, h=x_stop)
-                canvas['amp_w_pos'][k].Update()
-                canvas['amp_w_pos'][k].SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
+
+                if 'space_sel' in conf.keys():
+                    x_start, x_stop, y_start, y_stop = conf['space_sel']['limits']
+                    y_sec, y_step = np.linspace(y_start, y_stop, 6, retstep=True)
+
+                    leg = rt.TLegend(0.7,0.7,0.98,0.93)
+                    can.obj = [leg]
+
+                    for i_s, (yd, yu) in enumerate(zip(y_sec[:-1], y_sec[1:])):
+                        pad = can.cd(1)
+                        line.SetLineColor(16)
+                        line.SetLineStyle(2)
+                        line.DrawLine(-width+dx, yu, width+dx, yu)
+                        if i_s == 0:
+                            line.DrawLine(-width+dx, yd, width+dx, yd)
+
+                        h_aux = rt.TProfile('h_aux_strip_'+str(i_s), 'Average amplitude in selected events', N_bins[0], -width+dx, width+dx)
+                        h_aux.SetXTitle('x [mm]')
+                        h_aux.SetYTitle('Average amplitude [mV]')
+                        var_x = var[var.find(':')+1:]
+                        var_y = var[:var.find(':')]
+                        tmp_sel = selection + ' && {y}<{u} && {y}>{d}'.format(y=var_y, u=yu, d=yd)
+                        tmp_sel += ' && {x}<{u} && {x}>{d}'.format(x=var_x, u=x_stop, d=x_start)
+                        chain.Project('h_aux_strip_'+str(i_s), 'amp[' + str(k) + ']' + ':' + var_x, tmp_sel, 'prof')
+                        h_aux.SetStats(0)
+                        h_aux.GetYaxis().SetRangeUser(h_w.GetMinimum(10), 1.15*h_aux.GetMaximum())
+                        pad = can.cd(2)
+                        opt = 'PLC PMC'
+                        if i_s != 0:
+                            opt += ' SAME'
+                        h_aux.Draw(opt)
+                        leg.AddEntry(h_aux, ' y #in [{:.1f}, {:.1f}]'.format(yd, yu), 'l')
+                        can.obj.append(h_aux)
+
+                    leg.Draw()
+
+
+                can.Update()
+                can.SaveAs(out_dir + '/PositionXY_amp_weight_ch{:02d}.png'.format(k))
 
                 ''' -------------Avg integral-----------'''
                 name = 'h_int_weight_pos_'+str(k)
@@ -765,9 +773,12 @@ if __name__ == '__main__':
                         s2 = '{y} < {y2}-{d} && {y} > {y1}+{d} && {x} < {x2}-{d} && {x} > {x1}+{d}'
                         s = '!({} && !({}))'.format(s1, s2)
                         # s = '!({})'.format(s1)
-                        selection += ' && ' + s.format(x=conf['x_rot'], y = conf['y_rot'], d=0.25, x1=x1, x2=x2, y1=y1, y2=y2)
+                        # selection += ' && ' + s.format(x=conf['x_rot'], y = conf['y_rot'], d=0.25, x1=x1, x2=x2, y1=y1, y2=y2)
 
                         # selection += ' && ' + configurations.channel[kk]['SiPM_sel']['cut']
+            if args.verbose:
+                print 'x_var:', conf['x_rot']
+                print 'y_var:', conf['y_rot']
 
             if chain.GetEntries(selection) < 5:
                 print 'Not enought stat ({})'.format(chain.GetEntries(selection))
@@ -805,6 +816,10 @@ if __name__ == '__main__':
                 h = h.DrawCopy('LE')
                 canvas['t_res_raw'][k].Update()
                 canvas['t_res_raw'][k].SaveAs(out_dir + '/TimeResolution_raw_ch{:02d}.png'.format(k))
+
+                selection += '&& ({v} < {h} && {v} > {l})'.format(v=var_dT, h=median+2*width, l=median-2*width)
+                if args.verbose:
+                    print 'selection:', selection
 
             '''=========================== Time resolution 2D ==========================='''
             if 'TimeResRaw2D' in configurations.plots:

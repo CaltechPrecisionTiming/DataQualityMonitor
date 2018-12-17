@@ -8,18 +8,23 @@ std_color_list = [1, 2, 4, 8, 6, 28, 43, 7, 25]
 def quantile(a, p, weight=None, f=None):
     if a.shape[0] == 0:
         return None, None
-    q = np.percentile(a, 100*p).astype(np.float64)
-
-    if weight == None:
+    if weight is None:
+        q = np.percentile(a, 100*p).astype(np.float64)
         weight = np.full_like(a, 1.0/a.shape[0], np.float64)
+    else:
+        i_sort = np.argsort(a)
+        a = a[i_sort]
+        weight = weight[i_sort]
+        cum_sum = np.cumsum(weight, dtype=np.float128)
+        idx_q = np.argmax(cum_sum>p*cum_sum[-1])
+        q = a[idx_q]
+
+        weight /= np.sum(weight)
 
     if not f==None:
         f_q = f(q)
     else:
         h = create_TH1D(a, binning=[None, np.percentile(a, 2), np.percentile(a, 98)], weights=weight)
-        # c = rt.TCanvas('c', 'c', 600,600)
-        # h.Draw()
-        # c.SaveAs('/Users/olmo/Desktop/tmp_{}_{}.png'.format(p, int(np.random.uniform(1,50))))
         f_q = h.GetBinContent(h.FindBin(q))/h.GetBinWidth(h.FindBin(q))
     if f_q == 0:
         f_q = 1e-3
@@ -27,9 +32,9 @@ def quantile(a, p, weight=None, f=None):
     sigma_q = np.sqrt(p*(1-p)/(a.shape[0]*f_q**2))
     return q, sigma_q
 
-def EstimateDispersion(aux):
-    q_up, e_up = quantile(aux, 0.15)
-    q_dwn, e_dwn = quantile(aux, 0.85)
+def EstimateDispersion(aux, w=None):
+    q_up, e_up = quantile(aux, 0.15, weight=w)
+    q_dwn, e_dwn = quantile(aux, 0.85, weight=w)
     if q_up == None or q_dwn == None:
         print '[WARNING] Quantile estimation failed'
         print aux.shape
@@ -135,7 +140,7 @@ def create_prof1D(x, y, name='h', title=None, binning=[None, None, None], h2clon
     h.binning = binning
     return h
 
-def create_TH2D(sample, name='h', title=None, binning=[None, None, None, None, None, None], weights=None, axis_title = ['','']):
+def create_TH2D(sample, name='h', title=None, binning=[None, None, None, None, None, None], weights=None, axis_title = ['','', '']):
     if title is None:
         title = name
     if (sample.shape[0] == 0):
@@ -172,9 +177,29 @@ def create_TH2D(sample, name='h', title=None, binning=[None, None, None, None, N
     rtnp.fill_hist(h, sample, weights=weights)
     h.SetXTitle(axis_title[0])
     h.SetYTitle(axis_title[1])
+    h.SetZTitle(axis_title[2])
     h.binning = binning
     return h
 
+def rootTH2_to_np(h, cut = None, Norm = False):
+    nx = h.GetNbinsX()
+    ny = h.GetNbinsY()
+
+    arr = np.zeros((ny, nx))
+    pos = np.zeros((ny, nx, 2))
+
+    for ix in range(nx):
+        for iy in range(ny):
+            x = h.GetXaxis().GetBinCenter( ix+1 );
+            y = h.GetYaxis().GetBinCenter( iy+1 );
+            z = h.GetBinContent(h.GetBin(ix+1, iy+1))
+
+            if cut == None:
+                arr[iy, ix] = z
+            else:
+                arr[iy, ix] = z if z > cut else 0
+            pos[iy, ix] = [x,y]
+    return arr, pos
 
 def make_ratio_plot(h_list_in, title = "", label = "", in_tags = None, ratio_bounds = [0.1, 4], draw_opt = 'E1'):
     h_list = []
