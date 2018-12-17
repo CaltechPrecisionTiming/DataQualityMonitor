@@ -17,10 +17,14 @@ def quantile(a, p, weight=None, f=None):
         f_q = f(q)
     else:
         h = create_TH1D(a, binning=[None, np.percentile(a, 2), np.percentile(a, 98)], weights=weight)
-        f_q = h.GetBinContent(h.FindBin(q))
+        # c = rt.TCanvas('c', 'c', 600,600)
+        # h.Draw()
+        # c.SaveAs('/Users/olmo/Desktop/tmp_{}_{}.png'.format(p, int(np.random.uniform(1,50))))
+        f_q = h.GetBinContent(h.FindBin(q))/h.GetBinWidth(h.FindBin(q))
     if f_q == 0:
         f_q = 1e-3
-    sigma_q = 2*p*(1-p)/(a.shape[0]*f_q**2)
+        print '[ERROR]: Failed to estimate pdf'
+    sigma_q = np.sqrt(p*(1-p)/(a.shape[0]*f_q**2))
     return q, sigma_q
 
 def create_TH1D(x, name='h', title=None, binning=[None, None, None], weights=None, h2clone=None, axis_title = ['','']):
@@ -49,6 +53,72 @@ def create_TH1D(x, name='h', title=None, binning=[None, None, None], weights=Non
         h.Reset()
 
     rtnp.fill_hist(h, x, weights=weights)
+    h.SetXTitle(axis_title[0])
+    h.SetYTitle(axis_title[1])
+    h.binning = binning
+    return h
+
+def create_prof1D(x, y, name='h', title=None, binning=[None, None, None], h2clone=None, axis_title = ['',''], opt=''):
+    if title is None:
+        title = name
+    if h2clone == None:
+        if binning[1] is None:
+            binning[1] = min(x)
+        if binning[2] is None:
+            if ((np.percentile(x, 95)-np.percentile(x, 50))<0.2*(max(x)-np.percentile(x, 95))):
+                binning[2] = np.percentile(x, 90)
+            else:
+                binning[2] = max(x)
+        if binning[0] is None:
+            bin_w = 4*(np.percentile(x,75) - np.percentile(x,25))/(len(x))**(1./3.)
+            if bin_w == 0:
+                bin_w = 0.5*np.std(x)
+            if bin_w == 0:
+                bin_w = 1
+            binning[0] = int((binning[2] - binning[1])/bin_w) + 5
+
+        h = rt.TH1D(name, title, binning[0], binning[1], binning[2])
+    else:
+        h = h2clone.Clone(name)
+        h.SetTitle(title)
+        h.Reset()
+
+    for i in range(1, binning[0]+1):
+        xl = h.GetBinCenter(i) - h.GetBinWidth(i)/2.
+        xu = h.GetBinCenter(i) + h.GetBinWidth(i)/2.
+
+        sel = np.logical_and(x<xu, x>xl)
+        aux = y[sel]
+
+        if len(aux) > 0:
+            if 'Res' in opt:
+                q_up, e_up = quantile(aux, 0.15)
+                q_dwn, e_dwn = quantile(aux, 0.85)
+                if q_up == None or q_dwn == None:
+                    print '[WARNING] Quantile estimation failed'
+                    print aux.shape
+                    print q_up, q_dwn
+                    return
+                disp_est = 0.5*np.abs(q_up - q_dwn)
+                h.SetBinContent(i, disp_est)
+                disp_unc = 0.5*np.hypot(e_up, e_dwn)
+                h.SetBinError(i, disp_unc)
+            else:
+                h.SetBinContent(i, np.mean(aux))
+
+                if 's' in opt:
+                    q_up, e_up = quantile(aux, 0.15)
+                    q_dwn, e_dwn = quantile(aux, 0.85)
+                    if q_up == None or q_dwn == None:
+                        print '[WARNING] Quantile estimation failed'
+                        print aux.shape
+                        print q_up, q_dwn
+                        return
+                    disp_est = 0.5*np.abs(q_up - q_dwn)
+                    h.SetBinError(i, disp_est)
+                else:
+                    h.SetBinError(i, np.std(aux)/np.sqrt(aux.shape[0]))
+
     h.SetXTitle(axis_title[0])
     h.SetYTitle(axis_title[1])
     h.binning = binning
