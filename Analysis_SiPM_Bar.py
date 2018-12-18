@@ -6,7 +6,7 @@ from prettytable import PrettyTable
 
 import ROOT as rt
 from root_numpy import tree2array, tree2rec
-from lib.histo_utilities import create_TH1D, create_TH2D, quantile
+from lib.histo_utilities import create_TH1D, create_TH2D, quantile, rootTH2_to_np
 from lib.cebefo_style import cebefo_style, Set_2D_colz_graphics
 
 donotdelete = []
@@ -131,34 +131,6 @@ def define_range_around_peak(h, perc = [0.4, 0.4], Range=[0.0, 99999.0]):
         n_up += 1
     x_up = h.GetBinLowEdge(n_up) + h.GetBinWidth(n_up)
     return x_low, x_up, n_pk
-
-def rootTH2_to_np(h, cut = None, Norm = False):
-    nx = h.GetNbinsX()
-    ny = h.GetNbinsY()
-
-    arr = np.zeros((ny, nx))
-    pos = np.zeros((ny, nx, 2))
-
-    for ix in range(nx):
-        for iy in range(ny):
-            x = h.GetXaxis().GetBinCenter( ix+1 );
-            y = h.GetYaxis().GetBinCenter( iy+1 );
-            z = h.GetBinContent(h.GetBin(ix+1, iy+1))
-
-            if cut == None:
-                arr[iy, ix] = z
-            else:
-                arr[iy, ix] = z if z > cut else 0
-            pos[iy, ix] = [x,y]
-    return arr, pos
-
-def circle_filter(h_arr, cx, cy, rx, ry):
-    p = 0
-    for i,j in itertools.product(np.arange(h_arr.shape[0]), np.arange(h_arr.shape[1])):
-        if (float(cx-j)/rx)**2 + (float(cy-i)/ry)**2 < 1:
-            p += h_arr[i-1, j-1]
-
-    return p/(np.pi*rx*ry)
 
 def fill_TimeResHisto(k, dt, h2D, out_list, tagin, title_tag, canvas, save_canvas=True):
     q_up, e_up = quantile(1000*dt, 0.15)
@@ -709,7 +681,7 @@ if __name__ == '__main__':
         confL = configurations.channel[kL]
         #Look for left SiPM
         re_out = re.search(r'time([0-9]+)L', confL['type'])
-        if (hasattr(re_out, 'group')) and confL['idx_ref'] > 0:
+        if (hasattr(re_out, 'group')) and confL['idx_ref'] >= 0:
             N_bar = int(re_out.group(1))
             found = False
             for kR in configurations.ch_ordered:
@@ -897,7 +869,7 @@ if __name__ == '__main__':
             h.DrawCopy('colz')
 
             pad = can.cd(2)
-            leg = rt.TLegend(0.85,0.8,0.95,0.92)
+            leg = rt.TLegend(0.85,0.8,0.98,0.93)
 
             name = 'h_pos_sel1D'
             title = 'Events average selection efficiency within bar area'
@@ -1432,7 +1404,7 @@ if __name__ == '__main__':
                         h_TvsA = create_TH2D(np.column_stack((amp_ratio, dt)),
                                              'h_TvsA', 'Bar '+str(N_bar),
                                              binning=b,
-                                             axis_title=['Amp{} (L)/ Amp{} (R)'.format(kL, kR), var_dT + ' [ns]']
+                                             axis_title=['Amp{} (L)/ Amp{} (R)'.format(kL, kR), var_dT + ' [ns]', '']
                                              )
                         canvas['dt_vs_amp'][k] = rt.TCanvas('dt_vs_amp'+str(k), 'dt_vs_amp'+str(k), 800, 600)
                         h_TvsA.DrawCopy('colz')

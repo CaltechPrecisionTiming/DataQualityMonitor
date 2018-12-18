@@ -1,0 +1,15 @@
+#-->Print: Amp PosRaw PosWeight TimeResRaw TimeCorrected
+-->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight WaveColor
+-->XYcenter-width: 15 20 20
+-->TracksCleaning: CutOnCh0 ntracks==1 chi2<5
+-->TracksConsistency: RefCh0 List
+ch_num   idx_time  idx_dut   idx_ref      var_ref  cut   min    max  shape
+0               0        0        -1    gaus_mean    I     0    200   None
+2               0        0        -1         None    A   100    200   14x3
+3               0        0        -1         None    A   100    200   14x3
+4               0        0        -1         None    A   100    200   14x3
+5               0        0        -1         None    A   100    200   14x3
+19              2        0        -1         None    A   100    400   14x3
+20              2        0        -1         None    A   100    400   14x3
+21              2        0        -1         None    A   100    400   14x3
+22              2        0        -1         None    A   100    400   14x3
