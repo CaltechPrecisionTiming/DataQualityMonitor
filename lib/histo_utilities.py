@@ -1,7 +1,6 @@
 import numpy as np
 import ROOT as rt
 import root_numpy as rtnp
-import matplotlib.pyplot as plt
 
 std_color_list = [1, 2, 4, 8, 6, 28, 43, 7, 25]
 
@@ -163,9 +162,9 @@ def create_TH2D(sample, name='h', title=None, binning=[None, None, None, None, N
 
         if binning[4] is None:
             binning[4] = min(sample[:,1])
-        if binning[5] == None:
+        if binning[5] is None:
             binning[5] = max(sample[:,1])
-        if binning[3] == None:
+        if binning[3] is None:
             bin_w = 4*(np.percentile(sample[:,1],75) - np.percentile(sample[:,1],25))/(len(sample[:,1]))**(1./3.)
             if bin_w == 0:
                 bin_w = 0.5*np.std(sample[:,1])
@@ -175,6 +174,9 @@ def create_TH2D(sample, name='h', title=None, binning=[None, None, None, None, N
 
     h = rt.TH2D(name, title, binning[0], binning[1], binning[2], binning[3], binning[4], binning[5])
     rtnp.fill_hist(h, sample, weights=weights)
+
+    if len(axis_title)<3:
+        axis_title += (3-len(axis_title))*['']
     h.SetXTitle(axis_title[0])
     h.SetYTitle(axis_title[1])
     h.SetZTitle(axis_title[2])

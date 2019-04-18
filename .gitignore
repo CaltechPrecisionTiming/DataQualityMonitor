@@ -4,3 +4,4 @@
 *.o
 *.dSYM
 out_plots/*
+*sys.v#*

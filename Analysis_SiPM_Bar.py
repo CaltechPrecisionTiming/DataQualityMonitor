@@ -1172,7 +1172,8 @@ if __name__ == '__main__':
                 aux_spacelike =  tree2array(chain, spacelike_var, selection).flatten()
 
                 inputs = np.column_stack((np.ones_like(aux_x), aux_x))
-                coeff, r, rank, s = np.linalg.lstsq(inputs, aux_spacelike, rcond=None)
+                coeff, r, rank, s = np.linalg.lstsq(inputs, aux_spacelike)
+                # coeff, r, rank, s = np.linalg.lstsq(inputs, aux_spacelike, rcond=None)
                 b = [None, None, None, None, np.percentile(aux_spacelike, 1), np.percentile(aux_spacelike, 99)]
                 h_SLvsX = create_TH2D(np.column_stack((aux_x, aux_spacelike)),
                                      'h_SLvsX', 'Bar '+str(N_bar),
@@ -1199,11 +1200,11 @@ if __name__ == '__main__':
                 v = 2./coeff[1]
                 length = -coeff[0]*v
                 v2 = -50./coeff[0]
-                v3 = np.sum(np.square(2*aux_x - 50.))/np.sum((2*aux_x - 50.)*aux_spacelike)
-                print 'v3 = {:.0f} mm/ns'.format(v3)
+                # v3 = np.sum(np.square(2*aux_x - 50.))/np.sum((2*aux_x - 50.)*aux_spacelike)
+                # print 'v3 = {:.0f} mm/ns'.format(v3)
                 msg = 'v = {:.0f} ({:.0f}) mm/ns - l = {:.1f} mm'.format(v, v2, length)
                 print msg
-                print 'Refractive index = {:.2f}'.format(299.0/v3)
+                print 'Refractive index = {:.2f}'.format(299.0/v2)
                 l.DrawLatexNDC(0.15, 0.89, msg)
 
                 canvas['dt_vs_amp'][k].Update()
@@ -1399,7 +1400,8 @@ if __name__ == '__main__':
                         amp_ratio = ampL/ampR
                         # inputs = np.column_stack((np.ones_like(amp_ratio), amp_ratio, amp_ratio**2))
                         inputs = np.column_stack((np.ones_like(ampL), ampL, ampR, np.square(ampL), ampR*ampL, np.square(ampR)))
-                        coeff, r, rank, s = np.linalg.lstsq(inputs[dt_sel], dt[dt_sel], rcond=None)
+                        coeff, r, rank, s = np.linalg.lstsq(inputs[dt_sel], dt[dt_sel])
+                        # coeff, r, rank, s = np.linalg.lstsq(inputs[dt_sel], dt[dt_sel], rcond=None)
                         b = [None, None, None, None, median-2*width, median+2*width]
                         h_TvsA = create_TH2D(np.column_stack((amp_ratio, dt)),
                                              'h_TvsA', 'Bar '+str(N_bar),

@@ -1,0 +1,25 @@
+-->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight TimeResRaw TimeResRaw2D TimeRes2DAmp SpaceLike
+-->XYcenter-width: 10 25 10 8
+-->SpaceBinSize: 1.
+-->TracksCleaning: CutOnCh0 ntracks==1
+#-->TracksCleaning: CutOnCh0 ntracks==1 chi2<5
+-->Var_photek: gaus_mean
+#-->Var_photek: gaus_mean LP1_50 LP1_60 FL_50
+-->Var_amp: None
+#-->Var_time: LP2_2 LP2_3 LP2_5 LP2_7 LP2_10 LP2_5mV LP2_10mV LP2_20mV LP2_30mV LP2_50mV LP2_100mV LP1_40 LP1_50 LP1_60 LP1_300mV LP1_350mV LP1_400mV LP1_450mV LP1_500mV LP1_550mV LP1_600mV FL_40 FL_50 FL_60 FL_300mV FL_350mV FL_400mV FL_450mV FL_500mV FL_550mV FL_600mV
+#-->Var_time: LP1_40 LP1_50 LP1_60 LP1_400mV LP1_500mV LP1_600mV FL_40 FL_50 FL_60 FL_400mV FL_500mV FL_600mV
+-->Var_time: LP1_50 LP2_50
+ch_num   idx_time  idx_dut   idx_ref         type  cut  min    max  shape
+0               0        0        -1       photek    I    0    200   None
+#1               0        0         0       time1L    A  400   1200   12x3
+2               0        0         0       time2L    A  400   1200   12x3
+#3               0        0         0       time3L    A  400   1200   12x3
+#4               0        0         0       time1R    A  400   1200   12x3
+5               0        0         0       time2R    A  400   1200   12x3
+#6               0        0         0       time3R    A  400   1200   12x3
+#10              1        0        -1         amp1    A  100    300   12x3
+11              1        0        -1         amp2    A  100    300   12x3
+#12              1        0        -1         amp3    A  100    300   12x3
+#13              1        0        -1         amp4    A  100    300   12x3
+14              1        0        -1         amp5    A  100    300   12x3
+#15              1        0        -1         amp6    A  100    300   12x3
