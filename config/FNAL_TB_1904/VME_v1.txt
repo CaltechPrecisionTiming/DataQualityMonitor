@@ -1,6 +1,6 @@
 -->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight WaveColor
 -->XYcenter-width: 20 20 30
--->TracksCleaning: CutOnCh0 ntracks==1
+-->TracksCleaning: ntracks==1
 ch_num idx_time idx_dut idx_ref var_ref     cut  min     max   shape
 0      0        0       -1      gaus_mean   I    0       100   None
 1      0        0       -1      LP1_50      A    400     1200  None
