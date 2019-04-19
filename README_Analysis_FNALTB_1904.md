@@ -12,7 +12,7 @@ git clone https://github.com/CaltechPrecisionTiming/DataQualityMonitor.git
 mkdir results
 ```
 
-Optional: what is possible to do it to replace the folder results with a symbolic link to the eos ww folder. A possible example is:
+Optional: what is possible to do it to replace the folder results with a symbolic link to the eos www folder. A possible example is:
 ```
 rmdir results
 ln -s ~/cernbox/www/FNALTB_1904
