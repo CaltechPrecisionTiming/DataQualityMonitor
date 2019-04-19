@@ -1,4 +1,4 @@
--->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight TimeResRaw TimeResRaw2D TimeRes2DAmp SpaceLike
+-->Print: AllTracks Amp Int PosRaw PosSel+ PosWeight TimeResRaw TimeResRaw2D TimeRes2DAmp SpaceLike WaveColor
 -->XYcenter-width: 10 25 10 8
 -->SpaceBinSize: 1.
 -->TracksCleaning: CutOnCh0 ntracks==1

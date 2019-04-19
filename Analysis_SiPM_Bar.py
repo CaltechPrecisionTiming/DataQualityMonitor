@@ -244,16 +244,16 @@ if __name__ == '__main__':
             flag = '_' + str(runs[0])
 
     save_loc = args.save_loc
-    if os.path.isdir(save_loc):
-        if save_loc[-1] != '/':
-            save_loc += '/'
-        out_dir = save_loc + 'Run' + str(flag) + '_' + os.path.basename(args.config[:-4])
-        if not os.path.exists(out_dir):
-            os.mkdir(out_dir)
-            shutil.copy('lib/index.php', out_dir+'/index.php')
-    else:
-        print 'Save location not existing:', save_loc
-        raise Exception(' ')
+    if save_loc[-1] != '/':
+        save_loc += '/'
+    if not os.path.isdir(save_loc):
+        os.system('mkdir -p '+save_loc)
+        shutil.copy('lib/index.php', out_dir+'index.php')
+
+    out_dir = save_loc + 'Run' + str(flag) + '_' + os.path.basename(args.config[:-4])
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+        shutil.copy('lib/index.php', out_dir+'/index.php')
 
 
     chain = rt.TChain('pulse')
