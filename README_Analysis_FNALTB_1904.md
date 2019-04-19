@@ -1,5 +1,10 @@
 # Instructions to analyze runs from lxplus
 
+Connect to lxplus
+```
+ssh uname@lxplus.cern.ch
+```
+
 ## Set the environment
 First of all gather all the code and create all the directories.
 ```
@@ -18,6 +23,13 @@ rmdir results
 ln -s ~/cernbox/www/FNALTB_1904
 ```
 
+### Load the proper libraries
+
+```
+cd DataQualityMonitor
+source setup_lxplus.sh
+```
+
 ## Run the analysis
 
 the analysis runs on couple of channels and produce plots bars-orinted.
@@ -32,5 +44,4 @@ It is save to run different analysis versions on the same reco version since dif
 
 A practical example:
 ```
-python Analysis_SiPM_Bar.py -C config/FNAL_TB_1904/Analysis_SiPM_Bar_v3.txt -S ../results/v3/ -i ../data/VME/RecoData/RecoWithTracks/v3/RawDataSaver0CMSVMETiming_RunXXX_0_Raw.root -N 6369 6401
-```
+python Analysis_SiPM_Bar.py -C config/FNAL_TB_1904/Analysis_
