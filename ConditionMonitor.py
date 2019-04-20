@@ -8,7 +8,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("condition_location", type=str, default='../data/RP/', help='Name of output file')
+parser.add_argument('-l', '--condition_location', type=str, default='../data/RP/', help='Name of output file')
 args = parser.parse_args()
 
 loc_condition = args.condition_location

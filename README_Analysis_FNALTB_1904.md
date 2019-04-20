@@ -44,4 +44,5 @@ It is save to run different analysis versions on the same reco version since dif
 
 A practical example:
 ```
-python Analysis_SiPM_Bar.py -C config/FNAL_TB_1904/Analysis_
+python Analysis_SiPM_Bar.py -C config/FNAL_TB_1904/Analysis_SiPM_Bar_v3.txt -S ../results/v3/ -i ../data/VME/RecoData/RecoWithTracks/v3/RawDataSaver0CMSVMETiming_RunXXX_0_Raw.root -N 6369 6401
+```
