@@ -2,7 +2,7 @@ import numpy as np
 import os, re, shutil
 import argparse
 import itertools
-from prettytable import PrettyTable
+#from prettytable import PrettyTable
 
 import ROOT as rt
 from root_numpy import tree2array, tree2rec
@@ -263,6 +263,10 @@ if __name__ == '__main__':
         if not root_file:
             print "[ERROR]: Input file not found:", f
             continue
+        #print root_file
+        if not (root_file.GetListOfKeys().At(0)):
+            print 'Skipping file with no streamer Info!!'
+            continue
         tree_name = root_file.GetListOfKeys().At(0).GetName()
         if i == 0:
             if tree_name != 'pulse':
@@ -330,9 +334,9 @@ if __name__ == '__main__':
         line.SetLineColor(6)
         line.SetLineWidth(2)
         line.SetLineStyle(10)
-
+        
         selection = '(amp[{nch}] != 0 && integral[{nch}] != 0)'.format(nch=k)
-
+        #selection='1'
         '''=========================== Amplitude ==========================='''
         if 'Amp' in configurations.plots:
             name = 'h_amp_'+str(k)
@@ -1024,6 +1028,25 @@ if __name__ == '__main__':
 
             can.Update()
             can.SaveAs(out_dir + '/PositionXY_amp_weight_bar{:02d}'.format(N_bar)+figform)
+            
+            #[if (h1D_sum.GetBinCenter(i)>x_start and h1D_sum.GetBinCenter(i)<x_stop) for i in range(h1D_sum.GetNbinsx())]
+            AmpAvg_sum= np.mean([h1D_sum.GetBinContent(i)  for i in range(h1D_sum.GetNbinsX()) if (h1D_sum.GetBinCenter(i)>x_start and h1D_sum.GetBinCenter(i)<x_stop)])
+            AmpAvg_sum_err= np.mean([h1D_sum.GetBinError(i)  for i in range(h1D_sum.GetNbinsX()) if (h1D_sum.GetBinCenter(i)>x_start and h1D_sum.GetBinCenter(i)<x_stop)])
+            AmpAvg_L= np.mean([h1D_L.GetBinContent(i) for i in range(h1D_sum.GetNbinsX()) if (h1D_L.GetBinCenter(i)>x_start and h1D_L.GetBinCenter(i)<x_stop) ])
+            AmpAvg_L_err= np.mean([h1D_L.GetBinError(i)  for i in range(h1D_L.GetNbinsX()) if (h1D_L.GetBinCenter(i)>x_start and h1D_L.GetBinCenter(i)<x_stop)])
+            AmpAvg_R= np.mean([h1D_R.GetBinContent(i) for i in range(h1D_R.GetNbinsX()) if (h1D_R.GetBinCenter(i)>x_start and h1D_R.GetBinCenter(i)<x_stop) ])
+            AmpAvg_R_err= np.mean([h1D_R.GetBinError(i)  for i in range(h1D_R.GetNbinsX()) if (h1D_R.GetBinCenter(i)>x_start and h1D_R.GetBinCenter(i)<x_stop)])
+            
+            file_ampres = open(headout_dir+'/Amplitude_bar{}.txt'.format(N_bar),'w')
+            ln = '#avg_amp_LplusR, avg_amp_LplusR_err, avg_amp_L, avg_amp_L_err, avg_amp_R, avg_amp_R_err\n'
+            file_ampres.write(ln)
+            ln = '{:.2f}  {:.2f}  {:.2f}  {:.2f}  {:.2f}  {:.2f}\n'.format(AmpAvg_sum,AmpAvg_sum_err,AmpAvg_L,AmpAvg_L_err,AmpAvg_R,AmpAvg_R_err)
+            file_ampres.write(ln)
+            file_ampres.close()
+            print "Average amplitude : ", AmpAvg_sum, "+/- ", AmpAvg_sum_err
+            print "Average left amplitude : ", AmpAvg_L, "+/- ", AmpAvg_L_err
+            print "Average right amplitude : ", AmpAvg_R, "+/- ", AmpAvg_R_err
+            #for h1D_L.GetNBinsX
 
             ''' -------------Avg integral-----------'''
 
@@ -1158,8 +1181,9 @@ if __name__ == '__main__':
             selection = BarInfo.sel
             selection += ['({v}[{L}]!= 0 && {v}[{R}]!=0)'.format(v=v_time, L=kL, R=kR)]
             selection = ' && '.join(selection)
-
+            print selection 
             if chain.GetEntries(selection) < 5:
+                print chain.GetEntries(selection)
                 print 'Not enought stat ({})'.format(chain.GetEntries(selection))
                 continue
 
@@ -1503,15 +1527,15 @@ if __name__ == '__main__':
                     canvas['c_'+tag].SaveAs(out_dir + '/TimeRes2DAmp_bar{:02d}'.format(N_bar)+figform)
 
         file_results.close()
-
+        
     print '\n\n======================= Summary =============================='
-    table =  PrettyTable(['Bar', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
+    #table =  PrettyTable(['Bar', 'Best Resolution [ps]', 'Var ref', 'Var timr', 'Amp corrected'])
     for k, res in best_result.iteritems():
         row = [str(k), '{:.2f} +/- {:.2f}'.format(res.dT[0],res.dT[1])]
         row += [res.var[1], res.var[0], 'Yes' if res.AmpCorr else 'No']
-        table.add_row(row)
-
-    print table
-    table_txt = table.get_string()
-    with open(headout_dir+'/SummaryTable.txt','w') as file:
-        file.write(table_txt)
+        #table.add_row(row)
+        print row
+    #print table
+    #table_txt = table.get_string()
+    #with open(headout_dir+'/SummaryTable.txt','w') as file:
+        #file.write(table_txt)
